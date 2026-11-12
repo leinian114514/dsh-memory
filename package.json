@@ -1,7 +1,7 @@
 {
-  "name": "dsh-memory",
+  "name": "dsh-memory-nian",
   "version": "0.1.0",
-  "description": "自托管记忆系统插件：七层 SQLite 记忆库 + BM25 检索（含拼音与首字母容错）+ 首轮/每轮注入 + 七个 memory_* 工具。零运行时依赖，拼音库已 vendor。",
+  "description": "自托管记忆系统插件：七层 SQLite 记忆库 + BM25 检索（含拼音与首字母容错）+ 首轮/每轮注入 + 十个 memory_* 工具。零运行时依赖，拼音库已 vendor。",
   "type": "module",
   "author": "念 (Nian)",
   "main": "lib/index.js",

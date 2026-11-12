@@ -1,4 +1,4 @@
-# dsh-memory
+# dsh-memory-nian
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai) 用的**自托管记忆插件**：
 七层 SQLite 记忆库 + BM25 检索（对中文错别字、首字母缩写都有容错）+
@@ -118,8 +118,8 @@ memory_timeline id=<前12位>
 ## 安装
 
 ```bash
-# 放进 profile 的 node_modules，并在 package.json 的 dsh.profile.bundles 里加上 dsh-memory
-dsh plugin add dsh-memory --profile <your-profile>
+# 放进 profile 的 node_modules，并在 package.json 的 dsh.profile.bundles 里加上 dsh-memory-nian
+dsh plugin add dsh-memory-nian --profile <your-profile>
 ```
 
 装完重启 DSH。插件自带 `cordis.patch.yml`（`dsh.bundle.patch`），会自动 insert 插件行。
