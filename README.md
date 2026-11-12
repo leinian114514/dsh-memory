@@ -117,12 +117,25 @@ memory_timeline id=<前12位>
 
 ## 安装
 
+### 方式一：DSH 直接装目录（推荐，不需要 npm 账号）
+
+1. 下载源码：<https://github.com/leinian114514/dsh-memory/archive/refs/heads/main.zip>
+2. 解压到任意目录（比如 `D:\plugins\dsh-memory`）
+3. 打开 DSH → **插件** → **添加插件** → 选那个目录
+4. 重启 DSH
+
+不需要 Node、不需要 npm、不需要命令行。
+
+### 方式二：npm（包名 `dsh-memory-nian`）
+
 ```bash
-# 放进 profile 的 node_modules，并在 package.json 的 dsh.profile.bundles 里加上 dsh-memory-nian
 dsh plugin add dsh-memory-nian --profile <your-profile>
 ```
 
-装完重启 DSH。插件自带 `cordis.patch.yml`（`dsh.bundle.patch`），会自动 insert 插件行。
+> 注意：这个包**还没发布到 npm**（`dsh-memory` 那个名字已被别人占用）。
+> 在它上线之前请用方式一。
+
+装完都重启 DSH。插件自带 `cordis.patch.yml`（`dsh.bundle.patch`），会自动 insert 插件行。
 
 **第一次运行不需要任何准备**：库文件不存在时会自动建表（18 张表 + 7 个索引），
 直接就能写。已有旧库也能直接用 —— 同一套 `IF NOT EXISTS` 语句会只补缺的表，不碰数据。
