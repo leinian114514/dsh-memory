@@ -120,7 +120,7 @@ memory_timeline id=<前12位>
 ### 方式一：DSH 直接装目录（推荐，不需要 npm 账号）
 
 1. 下载源码：<https://github.com/leinian114514/dsh-memory/archive/refs/heads/main.zip>
-2. 解压到任意目录（比如 `D:\plugins\dsh-memory`）
+2. 解压到任意目录（例如 `<你的插件目录>/dsh-memory`）
 3. 打开 DSH → **插件** → **添加插件** → 选那个目录
 4. 重启 DSH
 
