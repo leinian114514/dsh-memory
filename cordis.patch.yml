@@ -1,0 +1,26 @@
+- insert:
+    - id: dsh-memory
+      name: dsh-memory
+      # 需要 tools（注册 memory_* 工具）；pre-step 注入钩子通过 ctx.on 挂，不强依赖 agents
+      inject: [tools]
+      config:
+        # 下面几项**都是默认值**，写出来只为让人知道有这些旋钮，删掉行为完全一样。
+        #   dbPath   默认 <workspace>/.dsh-memory/memory.db
+        #   workspace 默认 = 进程 cwd（DSH 按会话工作区运行）
+        # 要指定就填绝对路径：
+        # dbPath: '/path/to/memory.db'
+        # workspace: '/path/to/workspace'
+
+        # 正式使用留空；与别的记忆插件并存时加个前缀（如 'pub_'）避免工具重名被拒注册
+        toolPrefix: ''
+
+        # 首轮注入：soul 全量 + user 全量 + 全局 rules(重要性>=2) + 项目名
+        firstTurn: true
+        firstTurnMaxChars: 8000
+
+        # 每条消息命中：fact/lesson/rules/topic 里按关键词打分取前 N 条
+        hit: true
+        hitTopK: 2
+
+        # 想看注入在不在干活就打开（默认不写日志文件）
+        # debugFile: '/path/to/dsh-memory.log'
