@@ -1,4 +1,4 @@
-# dsh-memory-nian
+﻿# dsh-memory-nian
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai) 用的**自托管记忆插件**：
 七层 SQLite 记忆库 + BM25 检索（对中文错别字、首字母缩写都有容错）+
@@ -178,7 +178,8 @@ DSH 拒绝**同名工具**注册，而且失败是**静默**的 —— 表现是
 | `reanchor` | `true` | 压缩后是否重注入长期记忆 |
 | `dedupeJaccard` | `0.65` | 写入查重阈值；设 `1` 等于关掉 |
 | `reflect` | `true` | 是否发「该记点什么了」的提醒 |
-| `reflectIdleMs` | `2700000`（45 分钟） | 多久没写记忆才提醒 |
+| `reflectEveryTurns` | `10` | **干满几轮没写记忆才提醒**（按轮次，不按时间） |
+| `reflectIdleMs` | `0` | 时间判据，默认关；设成毫秒数则与轮次判据取或 |
 | `reflectCooldownMs` | `2400000`（40 分钟） | 两次提醒的最小间隔 |
 | `coreTool` | `false` | 是否注册 `memory_core`（需先禁用 `dsh-core-memory`） |
 | `debugFile` | 空 | 填路径才写运行日志 |
