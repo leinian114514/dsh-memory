@@ -106,6 +106,36 @@ memory_timeline id=<前12位>
 另外还有一条提醒：**距上次写记忆已经过了若干轮、且当前在调工具干活**时，
 会投一句「这轮有没有值得长期记的」。纯聊天、刚写过、冷却期内都不吭声。
 
+## 和上下文压缩配合
+
+插件**不实现压缩**（那是 DSH 的 `/compact`），但它把压缩前后的两步接上了，靠三个钩子。
+
+**① 落档催办（`agent/pre-step`）**
+
+上下文水位到 `remindTokens`（读 `~/.dsh/auto-checkpoint.json`）时，在模型生成**之前**插一条提醒，
+让你先写 `precompact-<session>.md`。走预发（直接进上下文），不弹确认框，不占你一次点击。
+
+拿不到 `agent.session` 时退回轮次判据：每 `precompactEveryTurns` 轮查一次落档新鲜度，
+超过 `precompactFreshMs` 没更新就算旧。这样功能不至于哑掉。
+
+**② 落档写完，自己按冲水键（`agent/turn-stopping`）**
+
+同时满足四个条件才压：
+
+- token 超过 `remindTokens`
+- 工作区里有 `precompact-*.md`，且是 `precompactJustWrittenMs` 内写的
+- 那份落档里有「🔑 这一轮定下的结论」这一节，且不是空的
+- 同一份落档没压过
+
+然后开一个后台任务，等 agent 空闲再调 `/compact`。不能在 `turn-stopping` 里直接调——
+那时 agent 还没转 idle，会报 `Compaction is unavailable because this process has an active compaction, or the agent is not idle`。
+压失败会把标记清掉，允许下次重试。
+
+**③ 压缩完，把记忆再灌一遍（`agent/pre-step`）**
+
+压缩完 DSH 会插一条 `source.kind === 'compact-checkpoint'` 的用户消息，里面带 `compactionId`。
+这是 pre-step 里**唯一**能判断「刚压过」的信号。同一个 id 只补注入一次，避免连续几步反复灌。
+
 ## 检索为什么对中文友好
 
 - **字面**：CJK bigram 切分（`unicode61` 分词器对中文基本不可用），BM25 打分，
@@ -190,6 +220,11 @@ DSH 拒绝**同名工具**注册，而且失败是**静默**的 —— 表现是
 | `hit` | `true` | 是否做每轮关键词命中注入 |
 | `hitTopK` | `2` | 每轮最多注入几条 |
 | `reanchor` | `true` | 压缩后是否重注入长期记忆 |
+| `precompactNudge` | `true` | 上下文快满时催你写落档（预发，不弹框） |
+| `precompactEveryTurns` | `15` | 拿不到 token 水位时，每几轮查一次落档新鲜度 |
+| `precompactFreshMs` | `1800000`（30 分钟） | 落档多久没更新算「旧」 |
+| `autoCompactAfterPrecompact` | `true` | 落档写完自动调 `/compact` |
+| `precompactJustWrittenMs` | `600000`（10 分钟） | 「落档刚写完」的判定窗口 |
 | `dedupeJaccard` | `0.65` | 写入查重阈值；设 `1` 等于关掉 |
 | `reflect` | `true` | 是否发「该记点什么了」的提醒 |
 | `reflectEveryTurns` | `10` | **干满几轮没写记忆才提醒**（按轮次，不按时间） |
