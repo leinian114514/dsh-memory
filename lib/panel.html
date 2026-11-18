@@ -60,6 +60,22 @@ box-shadow:0 4px 18px rgba(76,110,245,.5)}
 .srow select{flex:1;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);border-radius:6px;
 color:#dfe6f8;padding:7px 9px;font-size:12px;outline:none;max-width:100%}
 .srow select:focus{border-color:rgba(124,157,255,.55)}
+/* 窗口选择：自定义下拉（原生 select 展开是系统白底，还会盖住下面整片） */
+.sel{position:relative;flex:1;min-width:0}
+.selbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
+background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);border-radius:6px;
+color:#dfe6f8;padding:7px 9px;font-size:12px;user-select:none}
+.selbtn:hover{border-color:rgba(124,157,255,.5)}
+.seltxt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selar{opacity:.55;font-size:10px;flex:none}
+.sellist{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;
+background:#141d33;border:1px solid rgba(124,157,255,.28);border-radius:6px;
+max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.6)}
+.sellist.open{display:block}
+.selopt{padding:7px 10px;font-size:12px;color:#cfdcf2;cursor:pointer;
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selopt:hover{background:rgba(124,157,255,.14)}
+.selopt.cur{color:#7cc0ff;background:rgba(124,157,255,.10)}
 .prule{color:#7e88a0;font-size:11px;margin:0 0 10px}
 .plabel{color:#8b95ad;font-size:11px;margin:10px 0 4px;letter-spacing:.04em}
 .pempty{color:#6f7890;font-size:11.5px;padding:2px 0 4px}
@@ -456,12 +472,19 @@ function renderProjects(d){
   var h='<div class="phead"><b>项目核心</b><span class="pbtns">'+
     '<button id="newproj">＋新建</button>'+
     '<button id="lockbtn" class="'+(lock?"on":"")+'">'+(lock?"🔒 已锁定":"🔓 锁定当前状态")+"</button></span></div>";
-  h+='<div class="srow"><label>窗口</label><select id="sessel">';
+  // 窗口选择：自定义下拉，不用 <select>。
+  // 🛑 原生 select 展开时是**系统渲染的白底深字**，在暗色面板上特别跳，
+  //    而且会把下面的项目列表整个盖住（Windows 上 <option> 的底色基本不受 CSS 控制）。
+  var curTitle = "（默认 / 无会话）";
+  for(i=0;i<sess.length;i++) if(sess[i].id===CURSID) curTitle = sess[i].title||sess[i].id;
+  h+='<div class="srow"><label>窗口</label><div class="sel" id="sessel">';
+  h+='<div class="selbtn" id="selbtn"><span class="seltxt">'+esc(curTitle)+'</span><span class="selar">▾</span></div>';
+  h+='<div class="sellist" id="sellist">';
   for(i=0;i<sess.length;i++){
-    h+='<option value="'+esc(sess[i].id)+'"'+(sess[i].id===CURSID?" selected":"")+">"+
-       esc(sess[i].title||sess[i].id)+"</option>";
+    h+='<div class="selopt'+(sess[i].id===CURSID?" cur":"")+'" data-id="'+esc(sess[i].id)+'" title="'+
+       esc(sess[i].title||sess[i].id)+'">'+esc(sess[i].title||sess[i].id)+"</div>";
   }
-  h+="</select></div>";
+  h+="</div></div></div>";
   h+='<div class="prule">'+(lock
     ? "已冻结整个集合：不再按关键词增减，但仍照常注入"
     : "方框 = 要不要注入（勾上就带进对话）；右边的锁 🔓 = 跟关键词自动 / 🔒 = 固定住，任何时候都能点")+"</div>";
@@ -481,8 +504,17 @@ function renderProjects(d){
       if(r&&r.snapshot){projSeq++;renderProjects(r.snapshot)}else loadProjects();
     }).catch(function(e){alert("锁定失败："+e.message)});
   };
-  var se=$("#sessel");
-  if(se)se.onchange=function(){CURSID=se.value;loadProjects()};
+  var se=$("#sessel"), sbtn=$("#selbtn"), slist=$("#sellist");
+  if(sbtn && slist){
+    sbtn.onclick=function(e){ e.stopPropagation(); slist.classList.toggle("open") };
+    slist.onclick=function(e){
+      var t=e.target.closest?e.target.closest(".selopt"):null;
+      if(!t) return;
+      var sid=t.getAttribute("data-id");
+      slist.classList.remove("open");
+      if(sid!==CURSID){ CURSID=sid; loadProjects() }
+    };
+  }
   var nb=$("#newproj");
   if(nb)nb.onclick=function(e){e.stopPropagation();openNewProject()};
 }
