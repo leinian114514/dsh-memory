@@ -1,0 +1,536 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>记忆中心</title><style>
+*{box-sizing:border-box}
+body{margin:0;padding:18px 20px;min-height:100vh;
+color:var(--dsw-alias-label-primary,#e7ebf7);
+background:radial-gradient(1200px 600px at 82% -12%,rgba(124,157,255,.13),transparent 62%),
+radial-gradient(900px 520px at -8% 104%,rgba(168,120,255,.10),transparent 58%),
+var(--dsw-alias-bg-base,linear-gradient(165deg,#1b1d2f 0%,#171827 55%,#141522 100%))}
+body{font:13px/1.65 system-ui,-apple-system,'Segoe UI Variable Text','Segoe UI','Microsoft YaHei UI','PingFang SC',sans-serif}
+body{font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.cell b,.score{font-variant-numeric:tabular-nums}
+h1{font-size:15.5px;font-weight:600;margin:0 0 14px;letter-spacing:.03em;
+background:linear-gradient(92deg,#a8c0ff,#b9a3ff 70%);-webkit-background-clip:text;
+background-clip:text;color:transparent}
+.muted{color:var(--dsw-alias-label-secondary,#8b95ad);font-size:12px}
+#bgfix{position:fixed;inset:0;z-index:-1;pointer-events:none;background-size:cover;
+background-position:center;background-repeat:no-repeat;display:none}
+#bgfix.on{display:block}
+#bgfix::after{content:"";position:absolute;inset:0;
+background:linear-gradient(180deg,rgba(10,12,24,.72) 0%,rgba(10,12,24,.86) 100%)}
+body.hasskin{background-image:none!important}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px;margin-bottom:18px}
+.cell{background:var(--dsw-alias-bg-module-platform,rgba(255,255,255,.035));border:1px solid rgba(140,165,255,.14);border-radius:10px;
+padding:10px 12px;transition:background .15s,border-color .15s}
+.cell:hover{background:rgba(255,255,255,.06);border-color:rgba(140,165,255,.28)}
+.cell b{display:block;font-size:18px;font-weight:600;line-height:1.2;color:#dbe6ff}
+.cell span{font-size:11px;color:#8b95ad}
+.row{display:flex;gap:9px;margin-bottom:14px}
+input,select{background:var(--dsw-alias-bg-overlay,rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.12);border-radius:8px;
+color:#e7ebf7;padding:8px 11px;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s}
+:root{color-scheme:dark}
+select{font-size:12.5px;letter-spacing:.01em;cursor:pointer}
+option{background:#20233a;color:#e7ebf7;padding:7px 9px;font-size:12.5px}
+option:checked{background:#2f4cbf;color:#fff}
+input:focus,select:focus{border-color:rgba(124,157,255,.55);box-shadow:0 0 0 3px rgba(124,157,255,.12)}
+button{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.045));
+border:1px solid rgba(255,255,255,.16);border-radius:9px;color:#e4ebff;padding:8px 15px;
+font-size:12.5px;cursor:pointer;font-family:inherit;
+transition:transform .1s,box-shadow .18s,background .18s,border-color .18s;
+box-shadow:0 1px 2px rgba(0,0,0,.22)}
+button:hover{background:linear-gradient(180deg,rgba(124,157,255,.30),rgba(124,157,255,.16));
+border-color:rgba(140,170,255,.52);box-shadow:0 3px 14px rgba(76,110,245,.3)}
+button:active{transform:translateY(1px);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#go,#edsave{background:linear-gradient(180deg,#6285ff,#4360dd);border-color:rgba(140,170,255,.7);
+color:#fff;box-shadow:0 2px 12px rgba(76,110,245,.35)}
+#go:hover,#edsave:hover{background:linear-gradient(180deg,#7a98ff,#5470ee);
+box-shadow:0 4px 18px rgba(76,110,245,.5)}
+.hit{border-bottom:1px solid rgba(255,255,255,.06);padding:11px 0}
+.hit .top{display:flex;gap:8px;align-items:baseline;margin-bottom:4px}
+.tag{background:rgba(124,157,255,.17);border-radius:4px;padding:1px 7px;font-size:11px;color:#a8c0ff}
+.score{font-size:11px;color:#6f7890;font-family:ui-monospace,monospace}
+.hit .body{color:var(--dsw-alias-label-secondary,#b9c3d8);font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+.phead{display:flex;justify-content:space-between;align-items:center;margin:2px 0 6px}
+.phead b{font-size:13px;font-weight:600}
+.phead button{padding:4px 10px;font-size:11.5px}
+.phead button.on{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
+.srow{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.srow label{font-size:11.5px;color:#8b95ad}
+.srow select{flex:1;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);border-radius:6px;
+color:#dfe6f8;padding:7px 9px;font-size:12px;outline:none;max-width:100%}
+.srow select:focus{border-color:rgba(124,157,255,.55)}
+.prule{color:#7e88a0;font-size:11px;margin:0 0 10px}
+.plabel{color:#8b95ad;font-size:11px;margin:10px 0 4px;letter-spacing:.04em}
+.pempty{color:#6f7890;font-size:11.5px;padding:2px 0 4px}
+.pitem{display:flex;align-items:center;gap:9px;padding:8px 10px;margin-bottom:3px;
+background:rgba(255,255,255,.03);border:1px solid rgba(140,165,255,.12);border-radius:7px;cursor:pointer;
+transition:background .12s,border-color .12s,transform .06s;user-select:none}
+.pitem:hover{background:rgba(255,255,255,.06);border-color:rgba(140,165,255,.26)}
+.pitem:active{transform:scale(.995)}
+.pitem.on{background:rgba(91,140,255,.16);border-color:rgba(124,157,255,.45)}
+.pitem .box{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid rgba(255,255,255,.22);
+display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;line-height:1}
+.pitem.on .box{background:var(--dsw-alias-brand-primary,#4c6ef5);border-color:var(--dsw-alias-brand-primary,#4c6ef5)}
+.pitem .nm{flex:1;font-size:12.5px;color:var(--dsw-alias-label-primary,#c9d5ee)}
+.pitem.on .nm{color:#eaf0ff}
+.pitem .sz{font-size:11px;color:#6f7890;font-family:ui-monospace,monospace}
+.pitem .pin{font-size:10px;color:#a8c0ff;background:rgba(124,157,255,.2);border-radius:3px;padding:1px 5px}
+/* 回落倒计时：显示"还有几轮没提到它就会被摘掉"。
+   maxMiss 语义是"连续几轮不提就摘"，但代码判的是 m > maxMiss，
+   所以实际能扛 maxMiss+1 轮 —— 这里按真实剩余轮数显示。 */
+.pitem .cd{font-size:10px;color:#7e88a0;background:rgba(255,255,255,.055);border-radius:3px;
+padding:1px 5px;font-family:ui-monospace,monospace;white-space:nowrap;flex:none}
+/* 只剩 1 轮：变暖色提醒，快掉了 */
+.pitem .cd.warn{color:#ffc06b;background:rgba(255,170,80,.16)}
+/* 钉住的项目永远不回落 */
+.pitem .cd.on{color:#a8c0ff;background:rgba(124,157,255,.18)}
+/* 锁住排除：比「常驻」暗，表示这个项目被按住了、提到也不来 */
+.pitem .cd.off{color:#8b95ad;background:rgba(255,255,255,.07)}
+.pitem .editbtn{flex:none;margin-left:6px;padding:1px 9px;font-size:11px;border-radius:5px;
+opacity:.55;transition:opacity .15s,background .15s}
+.pitem:hover .editbtn{opacity:1}
+.sep{height:1px;background:rgba(255,255,255,.06);margin:16px 0 14px}
+.hit .acts{float:right;display:flex;gap:6px}
+.hit .acts button{padding:1px 8px;font-size:11px;border-radius:5px}
+.hit .acts button.danger:hover{background:#5a2530;border-color:#8b3a48;color:#ffc9c9}
+.ed{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 14px;margin:10px 0 14px}
+.edh{font-size:12.5px;font-weight:600;margin-bottom:10px;color:#dfe6f8}
+.edrow{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.edrow label{font-size:11.5px;color:#8b95ad;min-width:34px}
+.edrow input[type=text],.edrow input:not([type]){flex:1;min-width:120px}
+.ed select{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#dfe6f8;padding:6px 8px;font-size:12px}
+.ed textarea{width:100%;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#dfe6f8;
+padding:8px 10px;font-size:12.5px;line-height:1.6;outline:none;font-family:inherit;resize:vertical}
+.ed textarea:focus,.ed input:focus{border-color:rgba(124,157,255,.55)}
+.ed #edsave{background:#4c6ef5;border-color:#3b5ee0;color:#fff}
+.err{color:#ff9a9a;font-size:12px;white-space:pre-wrap}
+</style></head><body>
+<div id="bgfix"></div>
+<h1>🧠 记忆中心</h1>
+<div id="stats" class="grid"></div>
+<div id="proj"><div class="muted">加载中…</div></div>
+<div class="sep"></div>
+<div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="addbtn">＋新增</button></div>
+<div id="editor"></div>
+<div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
+<script>
+function syncTheme(){
+try{
+var d=window.parent.document.documentElement;
+if(!d)return;
+var cs=window.parent.getComputedStyle(d);
+var vs=["--dsw-alias-bg-base","--dsw-alias-bg-module-platform","--dsw-alias-bg-overlay",
+"--dsw-alias-label-primary","--dsw-alias-label-secondary","--dsw-alias-label-tertiary",
+"--dsw-alias-brand-primary","--dsw-alias-interactive-bg-hover","--dsw-alias-markdown-code-block"];
+var root=document.documentElement;
+for(var i=0;i<vs.length;i++){var v=cs.getPropertyValue(vs[i]);
+if(v&&v.trim())root.style.setProperty(vs[i],v.trim())}
+}catch(e){}
+}
+function syncBackdrop(){
+try{
+var pw=window.parent,pd=pw.document;
+var pick="";
+var cands=[pd.body,pd.documentElement,pd.querySelector("#root"),pd.querySelector("#app"),
+pd.querySelector("[class*=skin]"),pd.querySelector("[class*=maid]")];
+for(var i=0;i<cands.length&&!pick;i++){
+var el=cands[i];if(!el)continue;
+var bg=pw.getComputedStyle(el).backgroundImage;
+if(bg&&bg!=="none"&&bg.indexOf("url(")>=0)pick=bg;
+}
+if(!pick){
+var names=[];
+try{
+var maxSheets=Math.min(pd.styleSheets.length,12);
+for(var s=0;s<maxSheets;s++){
+var rules=null;
+try{rules=pd.styleSheets[s].cssRules}catch(e2){continue}
+if(!rules)continue;
+var maxRules=Math.min(rules.length,800);
+for(var r=0;r<maxRules;r++){
+var t=rules[r].cssText||"";
+var m=t.match(/--[a-zA-Z0-9_-]+/g);
+if(m)for(var k=0;k<m.length;k++)if(names.indexOf(m[k])<0)names.push(m[k]);
+}
+}
+}catch(e3){}
+var cs=pw.getComputedStyle(pd.documentElement);
+var csb=pd.body?pw.getComputedStyle(pd.body):null;
+for(var n=0;n<names.length;n++){
+var v=cs.getPropertyValue(names[n])||(csb?csb.getPropertyValue(names[n]):"");
+v=(v||"").trim();
+if(v&&v.indexOf("url(")>=0){pick=v;break}
+}
+}
+if(!pick)return;
+var box=document.getElementById("bgfix");
+if(!box)return;
+box.style.backgroundImage=pick.indexOf("url(")===0?pick:"url(\""+pick+"\")";
+box.classList.add("on");
+document.body.classList.add("hasskin");
+}catch(e){}
+}
+var $=function(s){return document.querySelector(s)};
+// 必须连双引号一起转义！
+//    这个函数的结果被塞进 value="…" / data-n="…" / data-mode="…" / data-edit="…"
+//      · 任何含英文双引号的标题/项目名，在编辑器里 value 会被截断成第一个引号前的残片，
+//        一保存就把原值覆盖成残片（不用恶意构造就丢数据）；
+//      · 恶意名字可以闭合属性注入 onmouseover=…，而面板是同源 iframe，
+//        注入的脚本能以本机信任身份调所有 /dsh-memory/* 写接口。
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c==='"'?"&quot;":"&#39;"})}
+// 后端用 {ok:false, error} 表示业务失败。只看 HTTP 状态会把它当成功数据渲染：
+//    搜索挂了显示"没有命中"、项目读取挂了显示"一个项目都没有" —— 用户会以为记忆丢了。
+// 必须带 x-dsh-memory-panel 这个自定义头 —— 后端的硬闸靠它挡跨站请求
+//    （自定义头属于"非简单头"，恶意网页从别的站带不上来，带了就要 preflight，
+//     而后端不应答 OPTIONS）。少这个头所有请求都会 401。
+function get(u){return fetch(u,{credentials:"same-origin",headers:{"x-dsh-memory-panel":"1"}}).then(function(r){
+if(!r.ok)throw new Error("HTTP "+r.status);
+return r.json().then(function(d){
+if(d&&d.ok===false)throw new Error(d.error||"后端返回失败");
+return d})})}
+function renderStats(d){var g=$("#stats"),h="";
+var order=["core","project","branch","detail"];
+for(var i=0;i<order.length;i++){var k=order[i];
+h+='<div class="cell"><b>'+(d.counts[k]||0)+'</b><span>'+esc(k)+'</span></div>'}
+h+='<div class="cell"><b>'+d.projects+'</b><span>项目</span></div>';
+h+='<div class="cell"><b>'+d.total+'</b><span>合计</span></div>';
+g.innerHTML=h}
+function load(){get("/dsh-memory/stats").then(renderStats).catch(function(e){
+$("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'})}
+function search(){var q=$("#q").value.trim();
+var u=q?"/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15":"/dsh-memory/recent?n=15";
+get(u).then(function(d){renderHits(d.hits)}).catch(function(e){
+$("#out").innerHTML='<div class="err">检索失败：'+esc(e.message)+'</div>'})}
+$("#go").onclick=search;$("#q").onkeydown=function(e){if(e.key==="Enter")search()};
+
+var CUR=[];
+function renderHits(list){
+  CUR=list||[];
+  var o=$("#out");
+  if(!CUR.length){o.innerHTML='<div class="muted">没有命中</div>';return}
+  var h="";
+  for(var i=0;i<CUR.length;i++){
+    var it=CUR[i];
+    h+='<div class="hit"><div class="top"><span class="tag">'+esc(it.level)+"</span>"+
+      '<span class="muted">'+esc(it.id)+"</span>"+
+      (it.score!=null?'<span class="score">'+it.score.toFixed(2)+"</span>":"")+
+      '<span class="acts">'+
+      '<button data-edit="'+i+'">改</button>'+
+      '<button class="danger" data-del="'+i+'">删</button>'+
+      "</span></div>"+
+      '<div class="body">'+esc(it.content)+"</div></div>";
+  }
+  o.innerHTML=h;
+}
+function post(u,body){
+  return fetch(u,{method:"POST",credentials:"same-origin",
+    headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
+    body:JSON.stringify(body)}).then(function(r){return r.json()});
+}
+function openEditor(it){
+  var isNew=!it;
+  var lv=(it&&it.level)||"detail";
+  var opts=["core","project","branch","detail"].map(function(x){
+    return '<option value="'+x+'"'+(x===lv?" selected":"")+">"+x+"</option>"}).join("");
+  var h='<div class="ed"><div class="edh">'+(isNew?"新增记忆":"修改 "+esc(it.id))+"</div>";
+  h+='<div class="edrow"><label>层</label><select id="edlv" '+(isNew?"":"disabled")+">"+opts+"</select>";
+  h+='<label>项目</label><input id="edpj" value="'+esc((it&&it.project)||"全局")+'"></div>';
+  h+='<div class="edrow"><label>标题</label><input id="edti" value="'+esc((it&&it.title)||"")+'"></div>';
+  h+='<div class="edrow"><label>正文</label></div>';
+  h+='<textarea id="edct" rows="7">'+esc((it&&it.content)||"")+"</textarea>";
+  h+='<div class="edrow"><label>关键词</label><input id="edkw" placeholder="逗号或空格分隔" value="'+
+     esc(it&&it.keywords?String(it.keywords):"")+'"></div>';
+  h+='<div class="edrow">';
+  if(isNew)h+='<label><input type="checkbox" id="edfc"> 强制（跳过查重）</label>';
+  h+='<button id="edsave">保存</button><button id="edcancel">取消</button></div>';
+  h+='<div id="edmsg" class="err"></div></div>';
+  $("#editor").innerHTML=h;
+  // 编辑器里的保存/取消：先把消息节点引用抓住
+// （用户点保存后立刻点取消时 #editor 已被清空，#edmsg 变 null，
+function edMsg(){var m=document.getElementById("edmsg");return m&&m.isConnected?m:null}
+$("#edcancel").onclick=function(){$("#editor").innerHTML=""};
+  $("#edsave").onclick=function(){
+    var body={
+      level:$("#edlv").value,
+      project:$("#edpj").value.trim()||"全局",
+      title:$("#edti").value.trim(),
+      content:$("#edct").value,
+      keywords:$("#edkw").value,
+    };
+    var url,payload;
+    if(isNew){
+      payload=body;
+      if($("#edfc")&&$("#edfc").checked)payload.force=true;
+      url="/dsh-memory/item/add";
+    }else{
+      body.id=it.id;body.level=it.level;
+      url="/dsh-memory/item/update";
+      payload=body;
+    }
+    post(url,payload).then(function(r){
+      if(!r.ok){$("#edmsg").textContent=r.error||"保存失败";return}
+      $("#editor").innerHTML="";
+      search();load();
+    }).catch(function(e){$("#edmsg").textContent="保存失败："+e.message});
+  };
+}
+document.getElementById("out").addEventListener("click",function(e){
+  var b=e.target.closest?e.target.closest("button"):null;
+  if(!b)return;
+  if(b.getAttribute("data-edit")!=null){
+    var it2=CUR[Number(b.getAttribute("data-edit"))];
+    // 越界保护：CUR 已经被新的 renderHits 换掉、DOM 还是旧按钮时，
+    // undefined 进 openEditor 会弹出一个空白的「新增记忆」框，用户以为条目被清了。
+    if(!it2)return;
+    openEditor(it2);
+    return;
+  }
+  if(b.getAttribute("data-del")!=null){
+    var it=CUR[Number(b.getAttribute("data-del"))];
+    if(!it)return;
+    if(!confirm("把这条移出检索？\n\n"+String(it.content).slice(0,80)+"…\n\n（默认只归档，不物理删除）"))return;
+    post("/dsh-memory/item/delete",{id:it.id,level:it.level}).then(function(r){
+      if(!r.ok){alert(r.error||"删除失败");return}
+      search();load();
+    }).catch(function(err){alert("删除失败："+err.message)});
+  }
+});
+
+var CURSID="global";
+function withSid(u){return u+(u.indexOf("?")>=0?"&":"?")+"session="+encodeURIComponent(CURSID)}
+function renderProjects(d){
+  // 只在"还没选过窗口"时接受后端挑的那个会话。
+  //    之后点锁定、点开关全都作用在错的窗口上（而下拉里显示的又是对的）。
+  if(d&&d.sessionId&&(!CURSID||CURSID==="global"))CURSID=d.sessionId;
+  var ps=(d&&d.projects)||[];
+  var sess=(d&&d.sessions)||[];
+  var lock=!!(d&&d.locked);
+  var have=false,i;
+  for(i=0;i<sess.length;i++)if(sess[i].id===CURSID)have=true;
+  if(!have)sess=[{id:CURSID,title:CURSID.slice(-12)}].concat(sess);
+  var on=[],off=[],p,loaded;
+  for(i=0;i<ps.length;i++){
+    p=ps[i];
+    // 「已加载」= **当前活跃**（missRounds 有值）或手动锁住。
+    //    重启后照样是 true ⇒ 面板永远显示一堆"已加载"，用户问
+    //    「好几轮没提工作台，它怎么还在上面」。现在按活跃度显示。
+    loaded=(p.missRounds!=null||p.mode==="on");
+    (loaded?on:off).push(p);
+  }
+  // 按父子层级排：父项目后面紧跟它的子项目（缩进显示）
+  function byTree(list){
+    var kids={},roots=[],i2,j2,n2;
+    for(i2=0;i2<list.length;i2++){
+      n2=list[i2];
+      if(n2.parent&&list.some(function(x){return x.name===n2.parent}))(kids[n2.parent]=kids[n2.parent]||[]).push(n2);
+      else roots.push(n2);
+    }
+    var out=[];
+    for(i2=0;i2<roots.length;i2++){
+      out.push(roots[i2]);
+      var ch=kids[roots[i2].name]||[];
+      for(j2=0;j2<ch.length;j2++){ch[j2]._child=true;out.push(ch[j2])}
+    }
+    // 父项目不在这一组的孤立子项目，补在末尾
+    for(var k in kids)for(j2=0;j2<kids[k].length;j2++)if(out.indexOf(kids[k][j2])<0)out.push(kids[k][j2]);
+    return out;
+  }
+  on=byTree(on);off=byTree(off);
+  function row(x){
+    // 打勾 = 当前活跃（有 missRounds）或手动锁住；跟上面 on/off 分组用同一套判据
+    var on2=(x.missRounds!=null||x.mode==="on");
+    // data-mode 是给点击逻辑用的：要知道这一行现在是 auto / on / off 才能算"下一个状态"
+    var s='<div class="pitem'+(on2?" on":"")+(x._child?" child":"")+'" data-n="'+esc(x.name)+'" data-mode="'+esc(x.mode||"auto")+'">';
+    s+='<span class="box">'+(on2?"✓":"")+"</span>";
+    if(x._child)s+='<span class="br">└</span>';
+    s+='<span class="nm">'+esc(x.name)+"</span>";
+    s+='<span class="sz">'+(x.fileOk?x.size+" 字":"没写文件")+"</span>";
+    if(x.mode==="on"){
+      s+='<span class="cd on" title="已锁住：永远保持加载，提不提关键词都在这。再点一下放开、跟关键词走">🔒 锁住</span>';
+    }else if(x.mode==="off"){
+      s+='<span class="cd off" title="已锁住：永远不加载，提到关键词也不会来。再点一下放开、跟关键词走">🔒 锁住·不在</span>';
+    }else if(x.missRounds!=null){
+      var lim=((d&&d.maxMissTurns)||3)+1;
+      var left=lim-x.missRounds;
+      if(left<1)left=1;
+      s+='<span class="cd'+(left<=1?" warn":"")+'" title="已连续 '+x.missRounds+' 轮没提到它；再 '+left+" 轮不提就自动摘掉\">余 "+left+" 轮</span>";
+    }else if(x.injected===true){
+      // 不活跃了，但正文还在对话历史里（重启/掉出活跃集都不会把它从历史里拿走）
+      s+='<span class="cd" title="这个项目的核心正文已经在当前对话历史里，不会再重复灌一遍；提到关键词会重新计入活跃">已注入过</span>';
+    }
+    s+='<button class="editbtn" data-edit="'+esc(x.name)+'" title="改这个项目的核心正文">改</button>';
+    return s+"</div>";
+  }
+  var h='<div class="phead"><b>项目核心</b><span class="pbtns">'+
+    '<button id="newproj">＋新建</button>'+
+    '<button id="lockbtn" class="'+(lock?"on":"")+'">'+(lock?"🔒 已锁定":"🔓 锁定当前状态")+"</button></span></div>";
+  h+='<div class="srow"><label>窗口</label><select id="sessel">';
+  for(i=0;i<sess.length;i++){
+    h+='<option value="'+esc(sess[i].id)+'"'+(sess[i].id===CURSID?" selected":"")+">"+
+       esc(sess[i].title||sess[i].id)+"</option>";
+  }
+  h+="</select></div>";
+  h+='<div class="prule">'+(lock
+    ? "已冻结整个集合：不再按关键词增减，但仍照常注入"
+    : "点一下锁住当前状态（在就永远在、不在就永远不在），再点一下放开、跟关键词走")+"</div>";
+  h+='<div class="plabel">已加载 '+on.length+"</div>";
+  if(!on.length)h+='<div class="pempty">（这个窗口当前没有加载任何项目核心）</div>';
+  for(i=0;i<on.length;i++)h+=row(on[i]);
+  h+='<div class="plabel">未加载 '+off.length+"</div>";
+  for(i=0;i<off.length;i++)h+=row(off[i]);
+  $("#proj").innerHTML=h;
+  // 渲染成功就把上次的错误条清掉
+  var eb2=document.getElementById("projerr");
+  if(eb2)eb2.textContent="";
+  var lb=$("#lockbtn");
+  if(lb)lb.onclick=function(){
+    get(withSid("/dsh-memory/projects/lock?on="+(lock?"0":"1"))).then(function(r){
+      // 递增序号让在飞的轮询请求作废，否则旧数据后到会把按钮刷回原状态
+      if(r&&r.snapshot){projSeq++;renderProjects(r.snapshot)}else loadProjects();
+    }).catch(function(e){alert("锁定失败："+e.message)});
+  };
+  var se=$("#sessel");
+  if(se)se.onchange=function(){CURSID=se.value;loadProjects()};
+  var nb=$("#newproj");
+  if(nb)nb.onclick=function(e){e.stopPropagation();openNewProject()};
+}
+var projSeq=0;
+function loadProjects(){
+  var seq=++projSeq;
+  // 第一次加载**不能**带 session 参数 —— 带了就等于主动选 'global'，
+  var u = (CURSID && CURSID !== "global") ? withSid("/dsh-memory/projects") : "/dsh-memory/projects";
+  get(u).then(function(d){
+    // 过期响应直接丢掉：轮询 / 切窗口 / 点锁定 三路并发时，
+    //    慢的旧响应会把界面拽回上一个窗口的状态。
+    if(seq!==projSeq)return;
+    renderProjects(d);
+  }).catch(function(e){
+    if(seq!==projSeq)return;
+    showProjErr(e);
+  });
+}
+function showProjErr(e){
+  // 错误信息**不占 #proj 主容器** —— 那里面还有标题/窗口下拉/锁定/新建三个控件，
+  // 一冲掉就只能刷新整个面板才能恢复（而且轮询一旦停就更救不回来）。
+  var b=document.getElementById("projerr");
+  if(!b){
+    b=document.createElement("div");
+    b.id="projerr";b.className="err";b.style.margin="0 0 10px";
+    var host=document.getElementById("proj");
+    if(host&&host.parentNode)host.parentNode.insertBefore(b,host);
+  }
+  b.textContent="项目核心读取失败："+e.message+"（8 秒后自动重试）";
+}
+document.getElementById("proj").addEventListener("click",function(e){
+  // 「改」按钮先拦下来：它在 .pitem 里面，不拦会同时触发项目开关
+  var eb=e.target.closest?e.target.closest("button[data-edit]"):null;
+  if(eb){e.stopPropagation();openProjEditor(eb.getAttribute("data-edit"));return}
+  var it=e.target.closest?e.target.closest(".pitem"):null;
+  if(!it)return;
+  var n=it.getAttribute("data-n");
+  var cur=it.getAttribute("data-mode")||"auto";
+  var loaded=it.className.indexOf("on")>=0;
+  var next = (cur==="auto") ? (loaded?"on":"off") : "auto";
+  get(withSid("/dsh-memory/projects/set?name="+encodeURIComponent(n)+"&mode="+next)).then(function(r){
+    if(r&&r.snapshot){projSeq++;renderProjects(r.snapshot)}else loadProjects();
+  }).catch(function(err){alert("切换失败："+err.message)});
+});
+// 编辑某项目的核心正文：读 → textarea → 写回
+// 新建一个项目核心：填名字 + 关键词，插件写好 projects.json 和初始 md
+function openNewProject(){
+  var box=document.getElementById("pedit");
+  if(!box){box=document.createElement("div");box.id="pedit";
+    var host=document.getElementById("proj");
+    host.parentNode.insertBefore(box,host);}
+  box.innerHTML="";
+  var head=document.createElement("div");head.className="edh";head.textContent="新建项目核心";
+  var r1=document.createElement("div");r1.className="edrow";
+  var l1=document.createElement("label");l1.textContent="项目名";
+  var i1=document.createElement("input");i1.id="np-name";i1.placeholder="例：示例项目";
+  r1.appendChild(l1);r1.appendChild(i1);
+  var r2=document.createElement("div");r2.className="edrow";
+  var l2=document.createElement("label");l2.textContent="关键词";
+  var i2=document.createElement("input");i2.id="np-kw";i2.placeholder="逗号或空格分隔。写「你实际会怎么说」，不是项目名";
+  r2.appendChild(l2);r2.appendChild(i2);
+  var r3=document.createElement("div");r3.className="edrow";
+  var l3=document.createElement("label");l3.textContent="初始内容";
+  r3.appendChild(l3);
+  var ta=document.createElement("textarea");ta.id="np-ct";ta.rows=8;
+  ta.value="# 项目名 · 项目核心\n\n> 只写「不知道就会做错」的东西。背景、历史、代码说明不要放这里。\n\n## 坑\n- （这一条不看会怎么出错？）\n"
+  var r4=document.createElement("div");r4.className="edrow";
+  var save=document.createElement("button");save.textContent="创建";save.id="npsave";
+  var cancel=document.createElement("button");cancel.textContent="取消";
+  var msg=document.createElement("span");msg.className="err";
+  r4.appendChild(save);r4.appendChild(cancel);r4.appendChild(msg);
+  var wrap=document.createElement("div");wrap.className="ed";
+  wrap.appendChild(head);wrap.appendChild(r1);wrap.appendChild(r2);wrap.appendChild(r3);
+  wrap.appendChild(ta);wrap.appendChild(r4);
+  box.appendChild(wrap);
+  i1.focus();
+  cancel.onclick=function(){box.remove()};
+  save.onclick=function(){
+    var nm=i1.value.trim();
+    if(!nm){msg.textContent="项目名不能为空";return}
+    fetch("/dsh-memory/projects/create",{method:"POST",credentials:"same-origin",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({name:nm,keywords:i2.value,content:ta.value})})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d.ok){msg.textContent=d.error||"创建失败";return}
+      box.remove();loadProjects();
+    }).catch(function(err){msg.textContent="创建失败："+err.message});
+  };
+}
+function openProjEditor(name){
+  get("/dsh-memory/projects/file?name="+encodeURIComponent(name)).then(function(r){
+    if(!r.ok){alert(r.error||"读不到");return}
+    var box=document.getElementById("pedit");
+    if(!box){box=document.createElement("div");box.id="pedit";
+      var host=document.getElementById("proj");
+      host.parentNode.insertBefore(box,host);}
+    box.innerHTML="";
+    var head=document.createElement("div");head.className="edh";
+    head.textContent="编辑项目核心："+name+"（"+r.file+"）";
+    var ta=document.createElement("textarea");ta.rows=14;ta.value=r.content||"";
+    var row=document.createElement("div");row.className="edrow";
+    var save=document.createElement("button");save.textContent="保存";save.id="psave";
+    var cancel=document.createElement("button");cancel.textContent="取消";
+    var msg=document.createElement("span");msg.className="err";
+    row.appendChild(save);row.appendChild(cancel);row.appendChild(msg);
+    var wrap=document.createElement("div");wrap.className="ed";
+    wrap.appendChild(head);wrap.appendChild(ta);wrap.appendChild(row);
+    box.appendChild(wrap);
+    cancel.onclick=function(){box.remove()};
+    save.onclick=function(){
+      fetch("/dsh-memory/projects/file",{method:"POST",credentials:"same-origin",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({name:name,content:ta.value})})
+      .then(function(x){return x.json()})
+      .then(function(d){
+        if(!d.ok){msg.textContent=d.error||"保存失败";return}
+        box.remove();loadProjects();
+      }).catch(function(err){msg.textContent="保存失败："+err.message});
+    };
+    ta.focus();
+  }).catch(function(e){alert("读不到："+e.message)});
+}
+
+$("#addbtn").onclick=function(){openEditor(null)};
+load();loadProjects();search();
+setTimeout(function(){try{syncTheme()}catch(e){}try{syncBackdrop()}catch(e){}},60);
+setInterval(function(){
+  try{
+    if(document.hidden)return;
+    // 门禁判的是「里面还有没有正在编的东西」，不是「元素在不在」。
+    //    ⇒ 只要点过一次「＋新建」或某个项目的「改」（哪怕马上取消），
+    //    这个 return 就永远命中，轮询彻底死掉：倒计时、已注入过、锁定状态全部冻结。
+    var pdBox=document.getElementById("pedit");
+    if(pdBox&&pdBox.innerHTML)return;
+    var ed=document.getElementById("editor");
+    if(ed&&ed.innerHTML)return;
+    loadProjects();
+  }catch(e){}
+},8000);
+</script></body></html>
