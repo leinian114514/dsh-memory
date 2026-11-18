@@ -1,0 +1,49 @@
+{
+  "name": "dsh-memory-nian",
+  "version": "0.2.0",
+  "description": "自托管记忆系统插件：四层 SQLite 记忆库（核心/项目/分支/细节，每层带分类）+ BM25 检索（含拼音与首字母容错）+ 首轮快照与每轮命中注入 + **项目核心**（按当前活跃项目注入专属规则）+ 侧栏面板（可视化增删改查、项目开关、回落倒计时）。零运行时依赖，拼音库已 vendor。",
+  "type": "module",
+  "author": "念 (Nian)",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "vendor",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "memory",
+    "bm25",
+    "sqlite",
+    "self-hosted",
+    "cjk",
+    "pinyin",
+    "project-context",
+    "context-injection"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+*.tgz
+pnpm-lock.yaml
+package-lock.json
+
+# 本地调试与运行产物
+*.log
+debug.log
+data/
+export-test*.md
+
+# 测试与内部工具（依赖本机真库路径，不随包发布）
+test/
+_tools/
+*.bak-*
+
+# 系统垃圾
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
