@@ -64,19 +64,25 @@ color:#dfe6f8;padding:7px 9px;font-size:12px;outline:none;max-width:100%}
 .plabel{color:#8b95ad;font-size:11px;margin:10px 0 4px;letter-spacing:.04em}
 .pempty{color:#6f7890;font-size:11.5px;padding:2px 0 4px}
 .pitem{display:flex;align-items:center;gap:9px;padding:8px 10px;margin-bottom:3px;
-background:rgba(255,255,255,.03);border:1px solid rgba(140,165,255,.12);border-radius:7px;cursor:pointer;
-transition:background .12s,border-color .12s,transform .06s;user-select:none}
+background:rgba(255,255,255,.03);border:1px solid rgba(140,165,255,.12);border-radius:7px;cursor:default;
+transition:background .12s,border-color .12s;user-select:none}
 .pitem:hover{background:rgba(255,255,255,.06);border-color:rgba(140,165,255,.26)}
 .pitem:active{transform:scale(.995)}
 .pitem.on{background:rgba(91,140,255,.16);border-color:rgba(124,157,255,.45)}
-.pitem .box{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid rgba(255,255,255,.22);
-display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;line-height:1}
-.pitem.on .box{background:var(--dsw-alias-brand-primary,#4c6ef5);border-color:var(--dsw-alias-brand-primary,#4c6ef5)}
+.pitem .box{width:18px;height:18px;flex:none;border-radius:5px;border:1.5px solid rgba(255,255,255,.3);
+display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;line-height:1;
+cursor:pointer;transition:border-color .15s,background .15s}
+.pitem .box:hover{border-color:rgba(140,170,255,.75);background:rgba(124,157,255,.18)}
+.pitem.on .box{background:#2ea043;border-color:#3fb950;box-shadow:0 0 6px rgba(63,185,80,.4)}
+/* 锁按钮：每行都有，跟勾没勾无关 */
+.pitem .lockbtn{flex:none;padding:1px 7px;font-size:12px;border-radius:5px;line-height:1.5;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#9aa4bb;cursor:pointer}
+.pitem .lockbtn.on{background:rgba(255,170,80,.22);border-color:rgba(255,190,120,.6);color:#ffc06b}
 .pitem .nm{flex:1;font-size:12.5px;color:var(--dsw-alias-label-primary,#c9d5ee)}
 .pitem.on .nm{color:#eaf0ff}
 .pitem .sz{font-size:11px;color:#6f7890;font-family:ui-monospace,monospace}
 .pitem .pin{font-size:10px;color:#a8c0ff;background:rgba(124,157,255,.2);border-radius:3px;padding:1px 5px}
-/* 回落倒计时：显示"还有几轮没提到它就会被摘掉"。
+/* 🕒 回落倒计时：显示"还有几轮没提到它就会被摘掉"。
    maxMiss 语义是"连续几轮不提就摘"，但代码判的是 m > maxMiss，
    所以实际能扛 maxMiss+1 轮 —— 这里按真实剩余轮数显示。 */
 .pitem .cd{font-size:10px;color:#7e88a0;background:rgba(255,255,255,.055);border-radius:3px;
@@ -87,6 +93,10 @@ padding:1px 5px;font-family:ui-monospace,monospace;white-space:nowrap;flex:none}
 .pitem .cd.on{color:#a8c0ff;background:rgba(124,157,255,.18)}
 /* 锁住排除：比「常驻」暗，表示这个项目被按住了、提到也不来 */
 .pitem .cd.off{color:#8b95ad;background:rgba(255,255,255,.07)}
+/* 「🔓 放开」：手动固定状态下才出现的小按钮 */
+.pitem .ubtn{flex:none;margin-left:6px;padding:1px 8px;font-size:11px;border-radius:5px;
+background:rgba(124,157,255,.18);border-color:rgba(124,157,255,.45);color:#c9d8ff}
+.pitem .ubtn:hover{background:rgba(124,157,255,.34);border-color:rgba(140,170,255,.75)}
 .pitem .editbtn{flex:none;margin-left:6px;padding:1px 9px;font-size:11px;border-radius:5px;
 opacity:.55;transition:opacity .15s,background .15s}
 .pitem:hover .editbtn{opacity:1}
@@ -112,6 +122,7 @@ padding:8px 10px;font-size:12.5px;line-height:1.6;outline:none;font-family:inher
 <div id="proj"><div class="muted">加载中…</div></div>
 <div class="sep"></div>
 <div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="addbtn">＋新增</button></div>
+<div class="srow"><label><input type="checkbox" id="convchk" style="margin-right:6px;vertical-align:-1px">也搜历史对话原文</label><span class="muted" id="convstat"></span></div>
 <div id="editor"></div>
 <div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
 <script>
@@ -172,17 +183,18 @@ document.body.classList.add("hasskin");
 }catch(e){}
 }
 var $=function(s){return document.querySelector(s)};
-// 必须连双引号一起转义！
+// 🛑 必须连双引号一起转义！
 //    这个函数的结果被塞进 value="…" / data-n="…" / data-mode="…" / data-edit="…"
+//    这类**双引号属性**里。原来只处理 & < >，于是：
 //      · 任何含英文双引号的标题/项目名，在编辑器里 value 会被截断成第一个引号前的残片，
 //        一保存就把原值覆盖成残片（不用恶意构造就丢数据）；
 //      · 恶意名字可以闭合属性注入 onmouseover=…，而面板是同源 iframe，
 //        注入的脚本能以本机信任身份调所有 /dsh-memory/* 写接口。
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
 return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c==='"'?"&quot;":"&#39;"})}
-// 后端用 {ok:false, error} 表示业务失败。只看 HTTP 状态会把它当成功数据渲染：
+// 🛑 后端用 {ok:false, error} 表示业务失败。只看 HTTP 状态会把它当成功数据渲染：
 //    搜索挂了显示"没有命中"、项目读取挂了显示"一个项目都没有" —— 用户会以为记忆丢了。
-// 必须带 x-dsh-memory-panel 这个自定义头 —— 后端的硬闸靠它挡跨站请求
+// 🛑 必须带 x-dsh-memory-panel 这个自定义头 —— 后端的硬闸靠它挡跨站请求
 //    （自定义头属于"非简单头"，恶意网页从别的站带不上来，带了就要 preflight，
 //     而后端不应答 OPTIONS）。少这个头所有请求都会 401。
 function get(u){return fetch(u,{credentials:"same-origin",headers:{"x-dsh-memory-panel":"1"}}).then(function(r){
@@ -200,9 +212,39 @@ g.innerHTML=h}
 function load(){get("/dsh-memory/stats").then(renderStats).catch(function(e){
 $("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'})}
 function search(){var q=$("#q").value.trim();
-var u=q?"/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15":"/dsh-memory/recent?n=15";
-get(u).then(function(d){renderHits(d.hits)}).catch(function(e){
+var conv=$("#convchk")&&$("#convchk").checked;
+if(!q&&!conv){var u="/dsh-memory/recent?n=15";
+  get(u).then(function(d){renderHits(d.hits)}).catch(function(e){
+  $("#out").innerHTML='<div class="err">检索失败：'+esc(e.message)+'</div>'});return}
+if(conv){
+  // 历史对话检索：第一次或索引过期要建索引（约 15 秒），先把状态写出来
+  $("#out").innerHTML='<div class="muted">正在搜历史对话…（索引过期时要重建，约 15 秒）</div>';
+  var u2="/dsh-memory/conv-search?q="+encodeURIComponent(q||"")+"&k=15";
+  get(u2).then(function(d){
+    renderConvHits(d);
+  }).catch(function(e){
+    $("#out").innerHTML='<div class="err">历史对话检索失败：'+esc(e.message)+'</div>'});
+  return}
+var u3="/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15";
+get(u3).then(function(d){renderHits(d.hits)}).catch(function(e){
 $("#out").innerHTML='<div class="err">检索失败：'+esc(e.message)+'</div>'})}
+// 历史对话结果：每条带 session 尾号和消息序号，方便回原文
+function renderConvHits(d){
+  var st=d&&d.stats||{};
+  var s=$("#convstat");
+  if(s)s.textContent=st.msgs?("索引 "+st.msgs+" 条消息 / "+st.files+" 个会话"):"";
+  var hits=(d&&d.hits)||[];
+  if(!hits.length){$("#out").innerHTML='<div class="muted">历史对话里没找到这个说法</div>';return}
+  var h="";
+  for(var i=0;i<hits.length;i++){var r=hits[i];
+    var t=r.time?new Date(r.time).toISOString().slice(0,16).replace("T"," "):"";
+    h+='<div class="hit"><div class="top">'+
+       '<span class="tag">'+esc(r.role)+'</span>'+
+       '<span class="score">'+esc(String(r.sid).slice(-8))+' · seq '+r.seq+' · '+esc(t)+'</span>'+
+       '</div><div class="body">'+esc(r.text)+'</div></div>'}
+  $("#out").innerHTML=h;
+  CUR=[];
+}
 $("#go").onclick=search;$("#q").onkeydown=function(e){if(e.key==="Enter")search()};
 
 var CUR=[];
@@ -214,7 +256,9 @@ function renderHits(list){
   for(var i=0;i<CUR.length;i++){
     var it=CUR[i];
     h+='<div class="hit"><div class="top"><span class="tag">'+esc(it.level)+"</span>"+
-      '<span class="muted">'+esc(it.id)+"</span>"+
+      // 显示截断、但 title 里留完整 id —— 接口现在返回的是完整 id（以前被截成 24 位，
+      // 导致长度 36/42 的老记忆拿去 update/delete 全 404）
+      '<span class="muted" title="'+esc(it.id)+'">'+esc(String(it.id).slice(0,24))+"</span>"+
       (it.score!=null?'<span class="score">'+it.score.toFixed(2)+"</span>":"")+
       '<span class="acts">'+
       '<button data-edit="'+i+'">改</button>'+
@@ -227,21 +271,49 @@ function renderHits(list){
 function post(u,body){
   return fetch(u,{method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
-    body:JSON.stringify(body)}).then(function(r){return r.json()});
+    body:JSON.stringify(body)}).then(function(r){
+      // 后端出错时可能返回纯文本（401 unauthorized / 500 堆栈），
+      // 直接 .json() 会抛 "Unexpected token"，提示会变得莫名其妙
+      if(!r.ok)return r.text().then(function(t){return {ok:false,error:"HTTP "+r.status+(t?": "+t.slice(0,120):"")}});
+      return r.json();
+    });
 }
 function openEditor(it){
+  if(!it){renderEditor(null);return}
+  // 已有条目：**先取全文**再渲染。
+  // /search 和 /recent 返回的是搜索结果片段：content 截到 220 字、没有 title/keywords/project。
+  // 直接拿它填编辑器再保存，一次就丢掉标题和关键词、项目被改成「全局」、正文变成截断版
+  // —— 不用任何恶意操作，点一下「改」再点「保存」就中。
+  get("/dsh-memory/entry?id="+encodeURIComponent(it.id)+"&level="+encodeURIComponent(it.level||""))
+    .then(function(r){
+      if(!r.ok){alert(r.error||"读不到这条记忆");return}
+      renderEditor(r.entry);
+    })
+    .catch(function(e){alert("读不到："+e.message)});
+}
+function renderEditor(it){
   var isNew=!it;
   var lv=(it&&it.level)||"detail";
   var opts=["core","project","branch","detail"].map(function(x){
     return '<option value="'+x+'"'+(x===lv?" selected":"")+">"+x+"</option>"}).join("");
-  var h='<div class="ed"><div class="edh">'+(isNew?"新增记忆":"修改 "+esc(it.id))+"</div>";
+  var h='<div class="ed"><div class="edh">'+(isNew?"新增记忆":"修改 "+esc(String(it.id).slice(0,24)))+"</div>";
   h+='<div class="edrow"><label>层</label><select id="edlv" '+(isNew?"":"disabled")+">"+opts+"</select>";
   h+='<label>项目</label><input id="edpj" value="'+esc((it&&it.project)||"全局")+'"></div>';
   h+='<div class="edrow"><label>标题</label><input id="edti" value="'+esc((it&&it.title)||"")+'"></div>';
   h+='<div class="edrow"><label>正文</label></div>';
   h+='<textarea id="edct" rows="7">'+esc((it&&it.content)||"")+"</textarea>";
+  // 关键词在库里是 JSON 字符串（["记忆","系统"]），直接塞进输入框的话，
+  // 保存时后端按 [,，\s]+ 切分会把它切成 `["记忆"` / `"系统"]` 这种碎片，
+  // 检索打分立刻被污染，而且是不可逆的。这里先解析成逗号分隔再显示。
+  var kwText="";
+  try{
+    var kwRaw=it&&it.keywords;
+    var kwArr=Array.isArray(kwRaw)?kwRaw:JSON.parse(kwRaw||"[]");
+    if(Array.isArray(kwArr))kwText=kwArr.join(", ");
+    else kwText=String(kwRaw||"");
+  }catch(e){kwText=String((it&&it.keywords)||"")}
   h+='<div class="edrow"><label>关键词</label><input id="edkw" placeholder="逗号或空格分隔" value="'+
-     esc(it&&it.keywords?String(it.keywords):"")+'"></div>';
+     esc(kwText)+'"></div>';
   h+='<div class="edrow">';
   if(isNew)h+='<label><input type="checkbox" id="edfc"> 强制（跳过查重）</label>';
   h+='<button id="edsave">保存</button><button id="edcancel">取消</button></div>';
@@ -249,16 +321,18 @@ function openEditor(it){
   $("#editor").innerHTML=h;
   // 编辑器里的保存/取消：先把消息节点引用抓住
 // （用户点保存后立刻点取消时 #editor 已被清空，#edmsg 变 null，
+//  原来的写法会在 then/catch 里对 null 取属性再抛一次，失败提示完全吞掉）
 function edMsg(){var m=document.getElementById("edmsg");return m&&m.isConnected?m:null}
 $("#edcancel").onclick=function(){$("#editor").innerHTML=""};
   $("#edsave").onclick=function(){
     var body={
       level:$("#edlv").value,
-      project:$("#edpj").value.trim()||"全局",
       title:$("#edti").value.trim(),
       content:$("#edct").value,
       keywords:$("#edkw").value,
     };
+    // core 表没有 project 列 —— 提交上去就是 no such column 直接 500
+    if(body.level!=="core")body.project=$("#edpj").value.trim()||"全局";
     var url,payload;
     if(isNew){
       payload=body;
@@ -269,11 +343,14 @@ $("#edcancel").onclick=function(){$("#editor").innerHTML=""};
       url="/dsh-memory/item/update";
       payload=body;
     }
+    // 先把消息节点抓住：用户点完保存立刻点取消时 #editor 已被清空，
+    // 这时候直接 $('#edmsg') 会是 null，失败提示整个丢掉还抛一条 uncaught。
+    var msgEl=edMsg();
     post(url,payload).then(function(r){
-      if(!r.ok){$("#edmsg").textContent=r.error||"保存失败";return}
+      if(!r.ok){if(msgEl)msgEl.textContent=r.error||"保存失败";return}
       $("#editor").innerHTML="";
       search();load();
-    }).catch(function(e){$("#edmsg").textContent="保存失败："+e.message});
+    }).catch(function(e){if(msgEl)msgEl.textContent="保存失败："+e.message});
   };
 }
 document.getElementById("out").addEventListener("click",function(e){
@@ -298,10 +375,12 @@ document.getElementById("out").addEventListener("click",function(e){
   }
 });
 
+
 var CURSID="global";
 function withSid(u){return u+(u.indexOf("?")>=0?"&":"?")+"session="+encodeURIComponent(CURSID)}
 function renderProjects(d){
-  // 只在"还没选过窗口"时接受后端挑的那个会话。
+  // 🛑 只在"还没选过窗口"时接受后端挑的那个会话。
+  //    原来无条件回写 ⇒ 一个慢的旧响应就能把 CURSID 拽回上一个窗口，
   //    之后点锁定、点开关全都作用在错的窗口上（而下拉里显示的又是对的）。
   if(d&&d.sessionId&&(!CURSID||CURSID==="global"))CURSID=d.sessionId;
   var ps=(d&&d.projects)||[];
@@ -314,6 +393,7 @@ function renderProjects(d){
   for(i=0;i<ps.length;i++){
     p=ps[i];
     // 「已加载」= **当前活跃**（missRounds 有值）或手动锁住。
+    // 🛑 2026-11-18 改：以前用 p.injected 判断，但那是"内容进过上下文"的记录，
     //    重启后照样是 true ⇒ 面板永远显示一堆"已加载"，用户问
     //    「好几轮没提工作台，它怎么还在上面」。现在按活跃度显示。
     loaded=(p.missRounds!=null||p.mode==="on");
@@ -347,10 +427,13 @@ function renderProjects(d){
     if(x._child)s+='<span class="br">└</span>';
     s+='<span class="nm">'+esc(x.name)+"</span>";
     s+='<span class="sz">'+(x.fileOk?x.size+" 字":"没写文件")+"</span>";
-    if(x.mode==="on"){
-      s+='<span class="cd on" title="已锁住：永远保持加载，提不提关键词都在这。再点一下放开、跟关键词走">🔒 锁住</span>';
-    }else if(x.mode==="off"){
-      s+='<span class="cd off" title="已锁住：永远不加载，提到关键词也不会来。再点一下放开、跟关键词走">🔒 锁住·不在</span>';
+    // 🕒 回落倒计时（2026-11-18 用户要的：不显示的话不知道到底什么情况）
+    //    规则来自 project-core.js 的衰减段：一轮不提 miss+1，m > maxMiss 就摘。
+    //    所以真正能扛 maxMiss+1 轮，显示的是"再几轮不提就掉"。
+    //    missRounds 为 null = 不在激活集（未加载那半区）或者钉住了，都不显示倒计时。
+    // 锁住的不显示倒计时标签 —— 右边的 🔒 已经说明了"它不会再自动变"
+    if(x.mode==="on"||x.mode==="off"){
+      // 什么都不加
     }else if(x.missRounds!=null){
       var lim=((d&&d.maxMissTurns)||3)+1;
       var left=lim-x.missRounds;
@@ -360,6 +443,13 @@ function renderProjects(d){
       // 不活跃了，但正文还在对话历史里（重启/掉出活跃集都不会把它从历史里拿走）
       s+='<span class="cd" title="这个项目的核心正文已经在当前对话历史里，不会再重复灌一遍；提到关键词会重新计入活跃">已注入过</span>';
     }
+    // 锁按钮：**每行都有**，跟勾没勾无关。
+    //   🔓 = 跟关键词走（关键词说了算）    🔒 = 固定住当前这个勾选状态
+    // 之前把"能不能锁"绑在"有没有勾"上，导致没勾的时候没法锁，那是错的。
+    var locked=(x.mode==="on"||x.mode==="off");
+    s+='<button class="lockbtn'+(locked?" on":"")+'" data-lock="'+esc(x.name)+'" title="'+
+       (locked?"已固定住，点一下回到跟关键词自动":"现在是跟关键词自动，点一下把当前状态固定住")+
+       '">'+(locked?"🔒":"🔓")+'</button>';
     s+='<button class="editbtn" data-edit="'+esc(x.name)+'" title="改这个项目的核心正文">改</button>';
     return s+"</div>";
   }
@@ -374,7 +464,7 @@ function renderProjects(d){
   h+="</select></div>";
   h+='<div class="prule">'+(lock
     ? "已冻结整个集合：不再按关键词增减，但仍照常注入"
-    : "点一下锁住当前状态（在就永远在、不在就永远不在），再点一下放开、跟关键词走")+"</div>";
+    : "方框 = 要不要注入（勾上就带进对话）；右边的锁 🔓 = 跟关键词自动 / 🔒 = 固定住，任何时候都能点")+"</div>";
   h+='<div class="plabel">已加载 '+on.length+"</div>";
   if(!on.length)h+='<div class="pempty">（这个窗口当前没有加载任何项目核心）</div>';
   for(i=0;i<on.length;i++)h+=row(on[i]);
@@ -399,10 +489,11 @@ function renderProjects(d){
 var projSeq=0;
 function loadProjects(){
   var seq=++projSeq;
-  // 第一次加载**不能**带 session 参数 —— 带了就等于主动选 'global'，
+  // ⚠️ 第一次加载**不能**带 session 参数 —— 带了就等于主动选 'global'，
+  //    后端那个"默认挑最近会话"的逻辑就永远走不到（实测踩到：下拉一直停在「默认/无会话」）。
   var u = (CURSID && CURSID !== "global") ? withSid("/dsh-memory/projects") : "/dsh-memory/projects";
   get(u).then(function(d){
-    // 过期响应直接丢掉：轮询 / 切窗口 / 点锁定 三路并发时，
+    // 🛑 过期响应直接丢掉：轮询 / 切窗口 / 点锁定 三路并发时，
     //    慢的旧响应会把界面拽回上一个窗口的状态。
     if(seq!==projSeq)return;
     renderProjects(d);
@@ -427,12 +518,33 @@ document.getElementById("proj").addEventListener("click",function(e){
   // 「改」按钮先拦下来：它在 .pitem 里面，不拦会同时触发项目开关
   var eb=e.target.closest?e.target.closest("button[data-edit]"):null;
   if(eb){e.stopPropagation();openProjEditor(eb.getAttribute("data-edit"));return}
-  var it=e.target.closest?e.target.closest(".pitem"):null;
+  // 🔒 锁按钮：每行都有，跟勾没勾无关
+  //   🔓（auto）→ 点一下 = 把当前勾选状态固定住
+  //   🔒（on/off）→ 点一下 = 回到跟关键词自动
+  var lb2=e.target.closest?e.target.closest("button[data-lock]"):null;
+  if(lb2){
+    e.stopPropagation();
+    var ln=lb2.getAttribute("data-lock");
+    var lrow=lb2.closest(".pitem");
+    var lcur=(lrow&&lrow.getAttribute("data-mode"))||"auto";
+    var lshot=(lrow&&lrow.className.indexOf("on")>=0);
+    var lnext=(lcur==="auto")?(lshot?"on":"off"):"auto";
+    get(withSid("/dsh-memory/projects/set?name="+encodeURIComponent(ln)+"&mode="+lnext)).then(function(r){
+      if(r&&r.snapshot){projSeq++;renderProjects(r.snapshot)}else loadProjects();
+    }).catch(function(err){alert("锁定失败："+err.message)});
+    return;
+  }
+  // 只有前面那个方框是开关。整行不再是点击区 ——
+  // 以前点整行，点「放开」「改」附近的手滑就会连带触发开关，按钮看着也像被压住。
+  var boxEl=e.target.closest?e.target.closest(".pitem .box"):null;
+  if(!boxEl)return;
+  var it=boxEl.closest(".pitem");
   if(!it)return;
   var n=it.getAttribute("data-n");
   var cur=it.getAttribute("data-mode")||"auto";
   var loaded=it.className.indexOf("on")>=0;
-  var next = (cur==="auto") ? (loaded?"on":"off") : "auto";
+  // 方框 = 要不要注入：勾着就取消（off），没勾就勾上（on）。跟"锁不锁"无关。
+  var next = loaded ? "off" : "on";
   get(withSid("/dsh-memory/projects/set?name="+encodeURIComponent(n)+"&mode="+next)).then(function(r){
     if(r&&r.snapshot){projSeq++;renderProjects(r.snapshot)}else loadProjects();
   }).catch(function(err){alert("切换失败："+err.message)});
@@ -448,7 +560,7 @@ function openNewProject(){
   var head=document.createElement("div");head.className="edh";head.textContent="新建项目核心";
   var r1=document.createElement("div");r1.className="edrow";
   var l1=document.createElement("label");l1.textContent="项目名";
-  var i1=document.createElement("input");i1.id="np-name";i1.placeholder="例：示例项目";
+  var i1=document.createElement("input");i1.id="np-name";i1.placeholder="例：我的项目";
   r1.appendChild(l1);r1.appendChild(i1);
   var r2=document.createElement("div");r2.className="edrow";
   var l2=document.createElement("label");l2.textContent="关键词";
@@ -474,7 +586,7 @@ function openNewProject(){
     var nm=i1.value.trim();
     if(!nm){msg.textContent="项目名不能为空";return}
     fetch("/dsh-memory/projects/create",{method:"POST",credentials:"same-origin",
-      headers:{"content-type":"application/json"},
+      headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
       body:JSON.stringify({name:nm,keywords:i2.value,content:ta.value})})
     .then(function(x){return x.json()})
     .then(function(d){
@@ -486,30 +598,53 @@ function openNewProject(){
 function openProjEditor(name){
   get("/dsh-memory/projects/file?name="+encodeURIComponent(name)).then(function(r){
     if(!r.ok){alert(r.error||"读不到");return}
+    var LIMIT=r.limit||1500;
     var box=document.getElementById("pedit");
     if(!box){box=document.createElement("div");box.id="pedit";
       var host=document.getElementById("proj");
       host.parentNode.insertBefore(box,host);}
     box.innerHTML="";
     var head=document.createElement("div");head.className="edh";
-    head.textContent="编辑项目核心："+name+"（"+r.file+"）";
+    head.textContent="编辑项目核心："+name+"（"+r.file+"，上限 "+LIMIT+" 字符）";
     var ta=document.createElement("textarea");ta.rows=14;ta.value=r.content||"";
+    // 边打字边报字数：超了注入会被截断，等发现内容少一半再回头查太贵
+    var cnt=document.createElement("div");cnt.className="muted";
+    function refresh(){
+      var n=ta.value.length,pct=LIMIT?Math.round(n*100/LIMIT):0;
+      if(n>LIMIT){
+        cnt.textContent="⚠️ "+n+"/"+LIMIT+"，超 "+(n-LIMIT)+" 字符 —— 注入时只给前 "+LIMIT+" 个，后半段读不到";
+        cnt.style.color="#f85149";
+      }else if(n>=Math.floor(LIMIT*0.85)){
+        cnt.textContent="⚠️ "+n+"/"+LIMIT+"（"+pct+"%）—— 快满了，再往里加就该压缩";
+        cnt.style.color="#d29922";
+      }else{
+        cnt.textContent=n+"/"+LIMIT+"（"+pct+"%），余量 "+(LIMIT-n);
+        cnt.style.color="";
+      }
+    }
     var row=document.createElement("div");row.className="edrow";
     var save=document.createElement("button");save.textContent="保存";save.id="psave";
     var cancel=document.createElement("button");cancel.textContent="取消";
     var msg=document.createElement("span");msg.className="err";
     row.appendChild(save);row.appendChild(cancel);row.appendChild(msg);
     var wrap=document.createElement("div");wrap.className="ed";
-    wrap.appendChild(head);wrap.appendChild(ta);wrap.appendChild(row);
+    wrap.appendChild(head);wrap.appendChild(ta);wrap.appendChild(cnt);wrap.appendChild(row);
     box.appendChild(wrap);
+    ta.oninput=refresh;
+    refresh();
     cancel.onclick=function(){box.remove()};
     save.onclick=function(){
       fetch("/dsh-memory/projects/file",{method:"POST",credentials:"same-origin",
-        headers:{"content-type":"application/json"},
+        headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
         body:JSON.stringify({name:name,content:ta.value})})
       .then(function(x){return x.json()})
       .then(function(d){
         if(!d.ok){msg.textContent=d.error||"保存失败";return}
+        if(d.warn){
+          // 存是存进去了，但超了/快满了 —— 不关编辑器，让提示一直挂在眼前
+          msg.textContent=d.warn;msg.style.color=(d.chars>d.limit)?"#f85149":"#d29922";
+          refresh();loadProjects();return;
+        }
         box.remove();loadProjects();
       }).catch(function(err){msg.textContent="保存失败："+err.message});
     };
@@ -520,10 +655,16 @@ function openProjEditor(name){
 $("#addbtn").onclick=function(){openEditor(null)};
 load();loadProjects();search();
 setTimeout(function(){try{syncTheme()}catch(e){}try{syncBackdrop()}catch(e){}},60);
+// 🕒 倒计时会随对话轮次往前走，所以面板开着时隔一会儿静默刷一次项目区，
+//    不用用户手动点。两条保护：
+//      ① 页面在后台（切走了）就不刷，省得白耗；
+//      ② 有任何编辑器开着就不刷 —— 项目正文编辑器(#pedit) / 条目编辑器(#editor)，
+//         否则刷新会把人家正在输入的东西冲掉。
 setInterval(function(){
   try{
     if(document.hidden)return;
-    // 门禁判的是「里面还有没有正在编的东西」，不是「元素在不在」。
+    // 🛑 门禁判的是「里面还有没有正在编的东西」，不是「元素在不在」。
+    //    #pedit 只在第一次创建，取消/保存时原来只清 innerHTML、元素永远留在文档里
     //    ⇒ 只要点过一次「＋新建」或某个项目的「改」（哪怕马上取消），
     //    这个 return 就永远命中，轮询彻底死掉：倒计时、已注入过、锁定状态全部冻结。
     var pdBox=document.getElementById("pedit");

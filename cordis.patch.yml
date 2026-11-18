@@ -1,32 +1,25 @@
 - insert:
     - id: dsh-memory
       name: dsh-memory
-      # 需要 tools（注册 memory_* 工具）；pre-step 注入钩子通过 ctx.on 挂，不强依赖 agents
+      # 需要 tools（注册记忆工具）；pre-step 钩子通过 ctx.on 挂，不强依赖 agents
       inject: [tools]
       config:
-        # 下面几项**都是默认值**，写出来只为让人知道有这些旋钮，删掉行为完全一样。
-        #   dbPath   默认 <workspace>/.dsh-memory/memory.db
-        #   workspace 默认 = 进程 cwd（DSH 按会话工作区运行）
-        # 要指定就填绝对路径：
-        # dbPath: '/path/to/memory.db'
-        # workspace: '/path/to/workspace'
-
-        # 项目核心目录：默认 <workspace>/_项目核心
-        # 里面放 projects.json（项目清单：关键词 / 联动 / 父子 / 文件名）
-        # 和每个项目一个 .md（该项目"不看就会踩错"的规矩）。
-        # 第一次装上时这个目录不存在也没关系 —— 面板里点「＋新建」会自动建。
-        # projectCoreRoot: '/path/to/_项目核心'
-
-        # 正式使用留空；与别的记忆插件并存时加个前缀（如 'pub_'）避免工具重名被拒注册
+        # 🛑 这里不要写死盘符 / 绝对路径：本文件**随包发布**，别人的机器上没有 D 盘，
+        #    dbPath 指过去会在 mkdirSync 抛 ENOENT，记忆库整个打不开（12 个工具全废）。
+        #    dbPath 默认 <workspace>/.dsh-memory/memory.db，workspace 默认当前工作区，
+        #    本机要特殊路径就在自己的 profile 里覆盖，别写进这个 patch。
+        # 正式切换：前缀去掉，工具直接叫 memory_search / memory_remember …
+        # 前提是 meow-memory 已禁用，否则重名会被 DSH 拒绝注册。
         toolPrefix: ''
-
         # 首轮注入：core 的身份与偏好全量 + 重要性>=2 的原则与禁令 + 项目名列表
         firstTurn: true
         firstTurnMaxChars: 8000
-
         # 每条消息命中：detail 层里按关键词打分取前 N 条
+        # 先开这一路（只带 2 条，噪音可控），跟 meow-memory 当场对比效果
         hit: true
         hitTopK: 2
-
-        # 想看注入在不在干活就打开（默认不写日志文件）
-        # debugFile: '/path/to/dsh-memory.log'
+        # ⚠️ 关掉落档催办：dsh-auto-checkpoint 自己会按 remindTokens 催一次，
+        #    两边一起发就是重复（2026-11-17 实测：被催两次 → 写两份落档 → 压缩跑两次）。
+        #    只留它那边催；下面的自动压缩仍然生效——它靠「检测到新落档」触发，
+        #    不依赖自己是否发过提醒。
+        precompactNudge: false
