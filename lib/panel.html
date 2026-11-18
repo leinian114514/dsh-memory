@@ -213,11 +213,22 @@ return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c==='"'?"&quot;":"&#39;"})}
 // 🛑 必须带 x-dsh-memory-panel 这个自定义头 —— 后端的硬闸靠它挡跨站请求
 //    （自定义头属于"非简单头"，恶意网页从别的站带不上来，带了就要 preflight，
 //     而后端不应答 OPTIONS）。少这个头所有请求都会 401。
-function get(u){return fetch(u,{credentials:"same-origin",headers:{"x-dsh-memory-panel":"1"}}).then(function(r){
+function get(u,ms){var ms2=ms||20000;
+var ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+var timer=ctl?setTimeout(function(){ctl.abort()},ms2):null;
+var opt={credentials:"same-origin",headers:{"x-dsh-memory-panel":"1"}};
+if(ctl)opt.signal=ctl.signal;
+return fetch(u,opt).then(function(r){
+if(timer)clearTimeout(timer);
 if(!r.ok)throw new Error("HTTP "+r.status);
 return r.json().then(function(d){
 if(d&&d.ok===false)throw new Error(d.error||"后端返回失败");
-return d})})}
+return d})}).catch(function(e){
+if(timer)clearTimeout(timer);
+// 🛑 超时也要说清楚：索引在重建时后端可能要跑十几秒，用户只看到"正在搜…"
+//    永远转圈，会以为是死了。
+if(e&&e.name==="AbortError")throw new Error("超时（"+(ms2/1000)+" 秒没响应，可能正在建索引，稍后再试）");
+throw e})}
 function renderStats(d){var g=$("#stats"),h="";
 var order=["core","project","branch","detail"];
 for(var i=0;i<order.length;i++){var k=order[i];
@@ -227,19 +238,27 @@ h+='<div class="cell"><b>'+d.total+'</b><span>合计</span></div>';
 g.innerHTML=h}
 function load(){get("/dsh-memory/stats").then(renderStats).catch(function(e){
 $("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'})}
+var convBusy=false;
 function search(){var q=$("#q").value.trim();
 var conv=$("#convchk")&&$("#convchk").checked;
 if(!q&&!conv){var u="/dsh-memory/recent?n=15";
   get(u).then(function(d){renderHits(d.hits)}).catch(function(e){
   $("#out").innerHTML='<div class="err">检索失败：'+esc(e.message)+'</div>'});return}
 if(conv){
+  // 🛑 防连点：第一次建索引要十几秒，按钮不 disabled 的话用户必然会连点，
+  //    两路并发请求会各自触发一次重建（后端有单飞闸门兜着，但 UI 还是该挡住）。
+  if(convBusy)return;
+  convBusy=true;
+  var gbtn=$("#go");if(gbtn)gbtn.disabled=true;
+  var unfreeze=function(){convBusy=false;if(gbtn)gbtn.disabled=false};
   // 历史对话检索：第一次或索引过期要建索引（约 15 秒），先把状态写出来
   $("#out").innerHTML='<div class="muted">正在搜历史对话…（索引过期时要重建，约 15 秒）</div>';
   var u2="/dsh-memory/conv-search?q="+encodeURIComponent(q||"")+"&k=15";
-  get(u2).then(function(d){
-    renderConvHits(d);
+  // 90 秒：首次全量建索引实测 16 秒，留足排队余量
+  get(u2,90000).then(function(d){
+    renderConvHits(d);unfreeze();
   }).catch(function(e){
-    $("#out").innerHTML='<div class="err">历史对话检索失败：'+esc(e.message)+'</div>'});
+    $("#out").innerHTML='<div class="err">历史对话检索失败：'+esc(e.message)+'</div>';unfreeze()});
   return}
 var u3="/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15";
 get(u3).then(function(d){renderHits(d.hits)}).catch(function(e){
