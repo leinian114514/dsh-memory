@@ -118,6 +118,11 @@ opacity:.55;transition:opacity .15s,background .15s}
 .pitem:hover .editbtn{opacity:1}
 .sep{height:1px;background:rgba(255,255,255,.06);margin:16px 0 14px}
 .hit .acts{float:right;display:flex;gap:6px}
+/* 每条结果底下的元信息行：项目 · 时间 · 状态（2026-11-19 加） */
+.hit .hmeta{margin-top:5px;font-size:11px;color:#7d8aa3}
+.hit .arch{color:#e0b070}
+/* 已归档的条目整体压暗，一眼能和在役的区分开 */
+.hit.isarch{opacity:.62}
 .hit .acts button{padding:1px 8px;font-size:11px;border-radius:5px}
 .hit .acts button.danger:hover{background:#5a2530;border-color:#8b3a48;color:#ffc9c9}
 .ed{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 14px;margin:10px 0 14px}
@@ -130,15 +135,50 @@ opacity:.55;transition:opacity .15s,background .15s}
 padding:8px 10px;font-size:12.5px;line-height:1.6;outline:none;font-family:inherit;resize:vertical}
 .ed textarea:focus,.ed input:focus{border-color:rgba(124,157,255,.55)}
 .ed #edsave{background:#4c6ef5;border-color:#3b5ee0;color:#fff}
+/* 时间 / 情境 / 情绪 三行控件（2026-11-19 加） */
+.edrow input[type=date]{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);
+border-radius:6px;color:#dfe6f8;padding:5px 8px;font-size:12px;font-family:inherit;color-scheme:dark;
+flex:0 0 140px}   /* 不给就 flex-shrink 把年月日压到看不清 */
+/* 情绪标签框固定宽度：flex:1 会吃满整行，滑块和下拉被顶到最右边飘着 */
+#edmd{width:150px;flex:none}
+/* 滑块 + 来源下拉包一层，窄面板下**整体**换行，不会一个在左一个在右脱节 */
+.edrow .mdctl{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0}
+/* 🛑 必须显式清掉全局 input 的 border/background/padding —— 否则滑块外面
+   会套一个约 34px 高的带框盒子，看着像输入框而不是滑条 */
+#edmi{width:84px;flex:none;border:0;background:transparent;padding:0;accent-color:#6f8ef7}
+.edrow .hint{font-size:11px;color:#6f7a92;flex:none}
 .err{color:#ff9a9a;font-size:12px;white-space:pre-wrap}
+#plans:empty{display:none}
+.ph{font-size:12.5px;color:#cfdcf2;margin:12px 0 6px;font-weight:600}
+.planrow{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
+.planrow:hover{border-color:rgba(124,157,255,.4)}
+.ptop{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:#dce9fb}
+.pttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pnum{flex:none;color:#8fa6cc}
+.pbar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:5px;overflow:hidden}
+.pbar i{display:block;height:100%;background:#4c6ef5;border-radius:2px;transition:width .3s}
+.pleft{font-size:11.5px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tlh{font-size:12.5px;color:#cfdcf2;margin-bottom:8px;font-weight:600}
+.tlday{margin-bottom:12px;padding-left:10px;border-left:2px solid rgba(124,157,255,.25)}
+.tldate{font-size:12px;color:#8fa6cc;margin-bottom:4px}
+.tlitem{font-size:12px;padding:2px 0;color:#dce9fb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlv{font-size:10.5px;color:#8fa6cc;border:1px solid rgba(255,255,255,.15);border-radius:3px;padding:0 3px;margin-right:4px}
+.tlk{font-size:10.5px;color:#f0c060;border:1px solid rgba(240,192,96,.45);border-radius:3px;padding:0 3px;margin-right:4px}
+.tlbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:11.5px}
+.tlopt{color:#8fa6cc;border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:2px 7px;cursor:pointer}
+.tlopt:hover{border-color:rgba(124,157,255,.45);color:#cfdcf2}
+.tlopt.on{background:rgba(76,110,245,.22);border-color:rgba(124,157,255,.6);color:#dce9fb}
+.tlsep{color:rgba(255,255,255,.18)}
 </style></head><body>
 <div id="bgfix"></div>
 <h1>🧠 记忆中心</h1>
 <div id="stats" class="grid"></div>
+<div id="plans"></div>
 <div id="proj"><div class="muted">加载中…</div></div>
 <div class="sep"></div>
-<div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="addbtn">＋新增</button></div>
-<div class="srow"><label><input type="checkbox" id="convchk" style="margin-right:6px;vertical-align:-1px">也搜历史对话原文</label><span class="muted" id="convstat"></span></div>
+<div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="tlbtn">时间轴</button><button id="addbtn">＋新增</button></div>
+<div class="srow"><label><input type="checkbox" id="convchk" style="margin-right:6px;vertical-align:-1px">也搜历史对话原文</label><label style="margin-left:14px"><input type="checkbox" id="qarch" style="margin-right:6px;vertical-align:-1px">含已归档</label><span class="muted" id="convstat"></span></div>
 <div id="editor"></div>
 <div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
 <script>
@@ -236,8 +276,80 @@ h+='<div class="cell"><b>'+(d.counts[k]||0)+'</b><span>'+esc(k)+'</span></div>'}
 h+='<div class="cell"><b>'+d.projects+'</b><span>项目</span></div>';
 h+='<div class="cell"><b>'+d.total+'</b><span>合计</span></div>';
 g.innerHTML=h}
+// 时间轴：按天把新增和改动铺开，看得出"哪一批是同一阶段的产物"
+var TL={days:30,layers:'',only:''};
+function tlFetch(){
+var q="/dsh-memory/timeline?days="+TL.days;
+if(TL.layers)q+="&layers="+encodeURIComponent(TL.layers);
+if(TL.only)q+="&only="+TL.only;
+$("#out").innerHTML='<div class="muted">正在读时间轴…</div>';
+get(q,30000).then(renderTimeline).catch(function(e){
+$("#out").innerHTML='<div class="err">时间轴读取失败：'+esc(e.message)+'</div>'});
+}
+function renderTimeline(d){
+var opts=[['','全部'],['core','core'],['project','project'],['branch','branch'],['detail','detail']];
+var h='<div class="tlbar">';
+opts.forEach(function(o){
+h+='<span class="tlopt'+(TL.layers===o[0]?' on':'')+'" data-l="'+o[0]+'">'+o[1]+'</span>'});
+h+='<span class="tlsep">|</span>';
+h+='<span class="tlopt'+(TL.only==='edit'?' on':'')+'" data-o="1">只看改动</span>';
+h+='</div>';
+h+='<div class="tlh">最近 '+d.days+' 天 · '+d.total+' 条'+(TL.only==='edit'?'改动':'')+'</div>';
+if(!d.total){$("#out").innerHTML=h+'<div class="muted">这段时间没有记录</div>';bindTlBar();return}
+d.groups.forEach(function(g){
+h+='<div class="tlday"><div class="tldate">'+esc(g.date)+' <span class="muted">· '+g.items.length+' 条</span></div>';
+g.items.slice(0,25).forEach(function(it){
+h+='<div class="tlitem">';
+if(it.kind==='edit')h+='<span class="tlk">改</span>';
+h+='<span class="tlv">'+esc(it.layer)+'</span>'+esc(it.title||it.snippet||'(无标题)');
+if(it.project)h+=' <span class="muted">· '+esc(it.project)+'</span>';
+h+='</div>'});
+if(g.items.length>25)h+='<div class="muted" style="font-size:11.5px">…还有 '+(g.items.length-25)+' 条</div>';
+h+='</div>'});
+$("#out").innerHTML=h;
+bindTlBar();
+}
+// 筛选条每次渲染后要重新绑（innerHTML 换过）
+function bindTlBar(){
+var bar=document.querySelector(".tlbar");if(!bar)return;
+var els=bar.querySelectorAll(".tlopt");
+for(var i=0;i<els.length;i++){(function(el){
+el.onclick=function(){
+var l=el.getAttribute("data-l"),o=el.getAttribute("data-o");
+if(o)TL.only=(TL.only==='edit'?'':'edit');
+else TL.layers=l||'';
+tlFetch()}
+})(els[i])}
+}
+var tlbtn=$("#tlbtn");
+if(tlbtn)tlbtn.onclick=tlFetch;
 function load(){get("/dsh-memory/stats").then(renderStats).catch(function(e){
-$("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'})}
+$("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'});
+get("/dsh-memory/plans").then(renderPlans).catch(function(){})}
+// 方案进度：只列没做完的，一眼看到卡在哪
+function renderPlans(d){
+var box=$("#plans");if(!box)return;
+var ps=(d&&d.plans)||[];
+var act=ps.filter(function(p){return !(p.total>0&&p.todo===0)});
+if(act.length===0){box.innerHTML='';return}
+var h='<div class="ph">📋 方案 <span class="muted" style="font-weight:400">· '+act.length+' 个没做完</span></div>';
+act.slice(0,5).forEach(function(p){
+var pct=p.total>0?Math.round(p.done/p.total*100):0;
+h+='<div class="planrow" data-id="'+esc(p.id)+'"><div class="ptop">';
+h+='<span class="pttl">'+esc(p.title||'(无标题)')+'</span>';
+h+='<span class="pnum">'+p.done+'/'+p.total+'</span></div>';
+h+='<div class="pbar"><i style="width:'+pct+'%"></i></div>';
+if(p.left&&p.left.length)h+='<div class="pleft muted">下一步：'+esc(p.left[0])+'</div>';
+h+='</div>'});
+if(act.length>5)h+='<div class="muted" style="font-size:11.5px">…还有 '+(act.length-5)+' 个</div>';
+box.innerHTML=h;
+// 点一行就把它的正文搜出来（复用现有检索，不另做弹窗）
+var rows=box.querySelectorAll(".planrow");
+for(var i=0;i<rows.length;i++){(function(el){
+el.onclick=function(){var t=el.querySelector(".pttl").textContent;
+var qi=$("#q");qi.value=t;if($("#convchk"))$("#convchk").checked=false;search()}
+})(rows[i])}
+}
 var convBusy=false;
 function search(){var q=$("#q").value.trim();
 var conv=$("#convchk")&&$("#convchk").checked;
@@ -260,7 +372,8 @@ if(conv){
   }).catch(function(e){
     $("#out").innerHTML='<div class="err">历史对话检索失败：'+esc(e.message)+'</div>';unfreeze()});
   return}
-var u3="/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15";
+var u3="/dsh-memory/search?q="+encodeURIComponent(q)+"&k=15"+
+  (($("#qarch")&&$("#qarch").checked)?"&status=all":"");
 get(u3).then(function(d){renderHits(d.hits)}).catch(function(e){
 $("#out").innerHTML='<div class="err">检索失败：'+esc(e.message)+'</div>'})}
 // 历史对话结果：每条带 session 尾号和消息序号，方便回原文
@@ -290,16 +403,30 @@ function renderHits(list){
   var h="";
   for(var i=0;i<CUR.length;i++){
     var it=CUR[i];
-    h+='<div class="hit"><div class="top"><span class="tag">'+esc(it.level)+"</span>"+
+    // 层 + 分类一起显示（`detail/lesson`）：只给层的话，想筛「这个项目的教训」
+    // 还得一条条点开才知道分工。
+    var catTxt=it.level+(it.category?("/"+it.category):"");
+    var meta=[];
+    if(it.project)meta.push(esc(it.project));
+    var when=it.at||it.updated_at||0;
+    var dt=fmtLocalDT(when);
+    if(dt)meta.push(esc(dt));
+    var archived=(it.status&&it.status!=="active");
+    if(archived)meta.push('<span class="arch">'+esc(it.status)+"</span>");
+    h+='<div class="hit'+(archived?" isarch":"")+'"><div class="top"><span class="tag">'+esc(catTxt)+"</span>"+
       // 显示截断、但 title 里留完整 id —— 接口现在返回的是完整 id（以前被截成 24 位，
       // 导致长度 36/42 的老记忆拿去 update/delete 全 404）
       '<span class="muted" title="'+esc(it.id)+'">'+esc(String(it.id).slice(0,24))+"</span>"+
       (it.score!=null?'<span class="score">'+it.score.toFixed(2)+"</span>":"")+
       '<span class="acts">'+
       '<button data-edit="'+i+'">改</button>'+
-      '<button class="danger" data-del="'+i+'">删</button>'+
+      (archived
+        ? '<button data-restore="'+i+'">恢复</button>'
+        : '<button class="danger" data-del="'+i+'">删</button>')+
       "</span></div>"+
-      '<div class="body">'+esc(it.content)+"</div></div>";
+      '<div class="body">'+esc(it.content)+"</div>"+
+      (meta.length?'<div class="hmeta">'+meta.join(" · ")+"</div>":"")+
+      "</div>";
   }
   o.innerHTML=h;
 }
@@ -313,27 +440,54 @@ function post(u,body){
       return r.json();
     });
 }
+// 连点两条「改」，或者先点「＋新增」再等旧请求返回时，后回来的那个会把当前
+// 编辑器**整个覆盖**，正在输入的内容被冲走。用序号令牌：只有最后一次点击的回包算数。
+var edSeq=0;
 function openEditor(it){
   if(!it){renderEditor(null);return}
   // 已有条目：**先取全文**再渲染。
   // /search 和 /recent 返回的是搜索结果片段：content 截到 220 字、没有 title/keywords/project。
   // 直接拿它填编辑器再保存，一次就丢掉标题和关键词、项目被改成「全局」、正文变成截断版
   // —— 不用任何恶意操作，点一下「改」再点「保存」就中。
+  var my=++edSeq;
   get("/dsh-memory/entry?id="+encodeURIComponent(it.id)+"&level="+encodeURIComponent(it.level||""))
     .then(function(r){
+      if(my!==edSeq)return;
       if(!r.ok){alert(r.error||"读不到这条记忆");return}
       renderEditor(r.entry);
     })
-    .catch(function(e){alert("读不到："+e.message)});
+    .catch(function(e){if(my===edSeq)alert("读不到："+e.message)});
+}
+/** 毫秒 → 本地 YYYY-MM-DD（date 控件只认这个格式）。
+ *  🛑 不能用 toISOString()：那是 UTC，UTC+8 下会把日子挪前一天。 */
+function fmtLocalDate(ms){
+  var d=new Date(Number(ms));
+  if(isNaN(d.getTime()))return "";
+  var y=String(d.getFullYear());
+  while(y.length<4)y="0"+y;
+  return y+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);
+}
+/** 毫秒 → 本地「2026-11-19 11:20」。列表里显示时间一律用这个，
+ *  🛑 别用 toISOString()——那是 UTC，本地会少 8 小时，看着像数据错乱。 */
+function fmtLocalDT(ms){
+  var n=Number(ms);
+  if(!n||isNaN(n))return "";
+  var d=new Date(n);
+  var p=function(x){return ("0"+x).slice(-2)};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
 }
 function renderEditor(it){
+  ++edSeq;   // 编辑器一换，所有在途的 openEditor 请求都作废
   var isNew=!it;
   var lv=(it&&it.level)||"detail";
   var opts=["core","project","branch","detail"].map(function(x){
     return '<option value="'+x+'"'+(x===lv?" selected":"")+">"+x+"</option>"}).join("");
+  // 项目：编辑时**别兜「全局」** —— 原本 null/空的归属被改成显式「全局」，
+  // 会把「全局条目永远通过」的检索语义改掉。只有新增才默认「全局」。
+  var pjVal=isNew?"全局":((it&&it.project!=null)?String(it.project):"");
   var h='<div class="ed"><div class="edh">'+(isNew?"新增记忆":"修改 "+esc(String(it.id).slice(0,24)))+"</div>";
   h+='<div class="edrow"><label>层</label><select id="edlv" '+(isNew?"":"disabled")+">"+opts+"</select>";
-  h+='<label>项目</label><input id="edpj" value="'+esc((it&&it.project)||"全局")+'"></div>';
+  h+='<label>项目</label><input id="edpj" value="'+esc(pjVal)+'"></div>';
   h+='<div class="edrow"><label>标题</label><input id="edti" value="'+esc((it&&it.title)||"")+'"></div>';
   h+='<div class="edrow"><label>正文</label></div>';
   h+='<textarea id="edct" rows="7">'+esc((it&&it.content)||"")+"</textarea>";
@@ -346,20 +500,93 @@ function renderEditor(it){
     var kwArr=Array.isArray(kwRaw)?kwRaw:JSON.parse(kwRaw||"[]");
     if(Array.isArray(kwArr))kwText=kwArr.join(", ");
     else kwText=String(kwRaw||"");
-  }catch(e){kwText=String((it&&it.keywords)||"")}
+  }catch(e){
+    // 🛑 坏 JSON 不能原样回填：那段残缺的 `["a","b"` 塞进输入框，保存后后端按
+    //    [,，\s]+ 切分会把它变成几个碎片关键词，越存越烂。退回空串让用户重填，
+    //    比"看着有值、其实已经坏了"强。
+    kwText="";
+  }
   h+='<div class="edrow"><label>关键词</label><input id="edkw" placeholder="逗号或空格分隔" value="'+
      esc(kwText)+'"></div>';
+  // ── 时间 / 情境 / 情绪（2026-11-19 加）────────────────────────
+  // 工具层（memory_remember）早就能收这三样，面板一直没暴露 ⇒ 手动补的条目
+  // 全是"没有时间感"的，时间轴上只能用记录时间冒充发生时间。
+  //
+  // 🛑 回填必须**同时记住原始值**（hdRaw / cxRaw）。这两个控件都是有损显示：
+  //    日期只到「天」、JSON 情境被拍成人话。保存时若无条件回写，
+  //    「10:30 的时刻」和「{scene,task} 的结构」会被静默抹掉 —— 只改个标题也会中。
+  var hdRaw=null;
+  if(it&&it.happened_at!=null&&it.happened_at!==""){
+    var hn=Number(it.happened_at);
+    // 0 视同未填：normalizeTime(0) 会存 0，渲染出来是 1970-01-01，像脏数据
+    if(Number.isFinite(hn)&&hn>0)hdRaw=hn;
+  }
+  var hdShown=hdRaw==null?"":fmtLocalDate(hdRaw);
+  var cxRaw=(it&&it.context!=null)?String(it.context):"";
+  var cxShown=cxRaw;
+  if(cxRaw){
+    try{
+      var cxO=JSON.parse(cxRaw);
+      if(cxO&&typeof cxO==="object"&&!Array.isArray(cxO)){
+        var cparts=[cxO.scene,cxO.task,cxO["with"],cxO.where].filter(Boolean);
+        // 有已知键才拼成人话；一个都没有就原样显示 JSON
+        // （回填成空串的话，用户一保存就把整段情境清光了）
+        if(cparts.length)cxShown=cparts.join(" / ");
+      }
+    }catch(e){/* 纯文本，原样显示 */}
+  }
+  var mdLabel="",mdIv=0.5,mdSrc=isNew?"explicit":"inferred",mdConf=null;
+  var md=it&&it.mood;
+  if(md){
+    var mdO=md,mParseErr=false;
+    if(typeof md==="string"){try{mdO=JSON.parse(md)}catch(e){mParseErr=true}}
+    if(mParseErr){
+      // 解析失败把原文塞进标签框，别静默清空（外部改坏了也能看见）
+      mdLabel=String(md).slice(0,60);
+    }else if(mdO&&typeof mdO==="object"){
+      mdLabel=mdO.label||"";
+      // 🛑 不能直接 Number()：Number(null)===0、Number("")===0，
+      //    「没设强度」会被回填成强度 0，一保存就把原值改成 0。
+      if(mdO.intensity!=null&&mdO.intensity!==""){
+        var iv=Number(mdO.intensity);
+        if(Number.isFinite(iv))mdIv=Math.max(0,Math.min(1,iv));
+      }
+      if(mdO.confidence!=null&&mdO.confidence!==""){
+        var cf=Number(mdO.confidence);
+        if(Number.isFinite(cf))mdConf=Math.max(0,Math.min(1,cf));
+      }
+      // 🛑 只有明确写着 explicit 才算「他明说的」。缺失/写错/大写一律按 inferred ——
+      //    反过来（非 inferred 就当 explicit）会把一条老条目静默改标成
+      //    「用户亲口说的」，这是最不能默认的方向。
+      mdSrc=mdO.source==="explicit"?"explicit":"inferred";
+    }
+  }
+  h+='<div class="edrow"><label>发生</label><input type="date" id="eddh" value="'+esc(hdShown)+'">'+
+     '<span class="hint">不填就按记录时间算</span></div>';
+  h+='<div class="edrow"><label>情境</label><input id="edcx" placeholder="改 dsh-memory 时 / 深夜排障" value="'+esc(cxShown)+'"></div>';
+  h+='<div class="edrow"><label>情绪</label><input id="edmd" placeholder="如 焦虑、满意" value="'+esc(mdLabel)+'">'+
+     '<span class="mdctl"><input type="range" id="edmi" min="0" max="1" step="0.05" value="'+mdIv+'" title="强度">'+
+     '<select id="edms">'+
+     '<option value="explicit"'+(mdSrc==="explicit"?" selected":"")+'>他明说的</option>'+
+     '<option value="inferred"'+(mdSrc==="inferred"?" selected":"")+'>我推断的</option>'+
+     '</select></span></div>';
   h+='<div class="edrow">';
   if(isNew)h+='<label><input type="checkbox" id="edfc"> 强制（跳过查重）</label>';
   h+='<button id="edsave">保存</button><button id="edcancel">取消</button></div>';
   h+='<div id="edmsg" class="err"></div></div>';
   $("#editor").innerHTML=h;
-  // 编辑器里的保存/取消：先把消息节点引用抓住
-// （用户点保存后立刻点取消时 #editor 已被清空，#edmsg 变 null，
-//  原来的写法会在 then/catch 里对 null 取属性再抛一次，失败提示完全吞掉）
-function edMsg(){var m=document.getElementById("edmsg");return m&&m.isConnected?m:null}
-$("#edcancel").onclick=function(){$("#editor").innerHTML=""};
+  // 失败提示要能挂住：用户点保存后立刻点取消时 #editor 已清空、#edmsg 脱离文档，
+  // 往它写文字等于对着空气报错 —— 那就退回 alert，别把失败吞掉。
+  function showMsg(text){
+    var m=document.getElementById("edmsg");
+    if(m&&m.isConnected){m.textContent=text;return}
+    alert(text);
+  }
+  $("#edcancel").onclick=function(){$("#editor").innerHTML=""};
   $("#edsave").onclick=function(){
+    var btn=this;
+    if(btn&&btn.disabled)return;
+    if(btn)btn.disabled=true;   // 防连点：编辑时第二个回包会覆盖，新增时白建两条
     var body={
       level:$("#edlv").value,
       title:$("#edti").value.trim(),
@@ -367,7 +594,29 @@ $("#edcancel").onclick=function(){$("#editor").innerHTML=""};
       keywords:$("#edkw").value,
     };
     // core 表没有 project 列 —— 提交上去就是 no such column 直接 500
-    if(body.level!=="core")body.project=$("#edpj").value.trim()||"全局";
+    if(body.level!=="core"){
+      var pj=$("#edpj").value.trim();
+      // 编辑时空就传空（后端存 null），别兜成「全局」把原归属改掉
+      body.project=isNew?(pj||"全局"):pj;
+    }
+    // 时间 / 情境 / 情绪
+    // 编辑时**总是传**（空串 = 清空）；新增时非空才传，免得每条塞一堆 null。
+    // 但「没动过」和「清空」是两种意图，得分开：
+    //   没动过 → 回传**原始值**（保住毫秒时刻 / JSON 结构）
+    //   动过或清空 → 传框里的字符串（空串即清空）
+    var dhv=$("#eddh").value.trim();
+    if(hdRaw!=null&&dhv===hdShown)body.happened_at=hdRaw;
+    else if(dhv||!isNew)body.happened_at=dhv;
+    var cxv=$("#edcx").value.trim();
+    if(cxRaw&&cxv===cxShown)body.context=cxRaw;
+    else if(cxv||!isNew)body.context=cxv;
+    // 情绪：confidence 不回带的话，每保存一次就丢一次
+    var mdv=$("#edmd").value.trim();
+    if(mdv){
+      var mo={label:mdv,intensity:Number($("#edmi").value),source:$("#edms").value};
+      if(mdConf!=null)mo.confidence=mdConf;
+      body.mood=mo;
+    }else if(!isNew)body.mood="";
     var url,payload;
     if(isNew){
       payload=body;
@@ -378,14 +627,12 @@ $("#edcancel").onclick=function(){$("#editor").innerHTML=""};
       url="/dsh-memory/item/update";
       payload=body;
     }
-    // 先把消息节点抓住：用户点完保存立刻点取消时 #editor 已被清空，
-    // 这时候直接 $('#edmsg') 会是 null，失败提示整个丢掉还抛一条 uncaught。
-    var msgEl=edMsg();
     post(url,payload).then(function(r){
-      if(!r.ok){if(msgEl)msgEl.textContent=r.error||"保存失败";return}
+      if(!r.ok){showMsg(r.error||"保存失败");if(btn)btn.disabled=false;return}
       $("#editor").innerHTML="";
+      ++edSeq;   // 编辑器关了，在途的 openEditor 回包也别再覆盖
       search();load();
-    }).catch(function(e){if(msgEl)msgEl.textContent="保存失败："+e.message});
+    }).catch(function(e){showMsg("保存失败："+e.message);if(btn)btn.disabled=false});
   };
 }
 document.getElementById("out").addEventListener("click",function(e){
@@ -407,6 +654,20 @@ document.getElementById("out").addEventListener("click",function(e){
       if(!r.ok){alert(r.error||"删除失败");return}
       search();load();
     }).catch(function(err){alert("删除失败："+err.message)});
+    return;
+  }
+  // 「恢复」：把 status 改回 active。
+  // 🛑 没有这个按钮的话，「删」就是单向的 —— 条目变成 archived 之后
+  //    面板既看不到（搜索默认只查 active）也没法救回来，
+  //    用户点完会以为数据没了（2026-11-19 用户体验测试发现）。
+  if(b.getAttribute("data-restore")!=null){
+    var itR=CUR[Number(b.getAttribute("data-restore"))];
+    if(!itR)return;
+    post("/dsh-memory/item/update",{id:itR.id,level:itR.level,status:"active"}).then(function(r){
+      if(!r.ok){alert(r.error||"恢复失败");return}
+      search();load();
+    }).catch(function(err){alert("恢复失败："+err.message)});
+    return;
   }
 });
 
