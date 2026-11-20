@@ -740,11 +740,20 @@ function renderProjects(d){
     (loaded?on:off).push(p);
   }
   // 按父子层级排：父项目后面紧跟它的子项目（缩进显示）
+  // 🛑 2026-11-20：父名优先用 projects.json 里声明的 parent；没声明就从名字的 `/` 推断。
+  //    这样即使没手动给子项目写过 parent，`父项目/子板块` 也会挂在 `父项目` 下面，
+  //    跟记忆库里 `project` 字段的父子规则保持一致。
+  function parentNameOf(x){
+    if(x.parent)return x.parent;
+    var nm=String((x&&x.name)||''),slash=nm.lastIndexOf('/');
+    return slash>0?nm.slice(0,slash):'';
+  }
   function byTree(list){
-    var kids={},roots=[],i2,j2,n2;
+    var kids={},roots=[],i2,j2,n2,pn;
     for(i2=0;i2<list.length;i2++){
       n2=list[i2];
-      if(n2.parent&&list.some(function(x){return x.name===n2.parent}))(kids[n2.parent]=kids[n2.parent]||[]).push(n2);
+      pn=parentNameOf(n2);
+      if(pn&&list.some(function(x){return x.name===pn}))(kids[pn]=kids[pn]||[]).push(n2);
       else roots.push(n2);
     }
     var out=[];
