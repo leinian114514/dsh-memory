@@ -51,6 +51,16 @@ box-shadow:0 4px 18px rgba(76,110,245,.5)}
 .tag{background:rgba(124,157,255,.17);border-radius:4px;padding:1px 7px;font-size:11px;color:#a8c0ff}
 .score{font-size:11px;color:#6f7890;font-family:ui-monospace,monospace}
 .hit .body{color:var(--dsw-alias-label-secondary,#b9c3d8);font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+/* v3 原文出处：可点开的「展开前后文」 + 展开后的上下文块 */
+.hit .more{margin-top:6px;font-size:11.5px;color:#6f9ce0;cursor:pointer;user-select:none;width:max-content}
+.hit .more:hover{color:#8fbaf5;text-decoration:underline}
+.convfull{margin:8px 0 10px;padding:8px 10px;border-left:2px solid #3f6ea8;background:rgba(255,255,255,.028);border-radius:4px}
+.convfull .cl{padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.05);font-size:12px;color:#a8b3c6;white-space:pre-wrap;word-break:break-word}
+.convfull .cl:last-child{border-bottom:none}
+.convfull .cl.cur{background:rgba(111,156,224,.10);border-radius:3px;padding-left:4px}
+.convfull .cseq{color:#7d8aa3;font-size:11px;margin-right:6px;font-variant-numeric:tabular-nums}
+.convfull .cwho{color:#6f9ce0;font-size:11px;margin-right:6px}
+.convfull .ctm{color:#66718a;font-size:11px}
 .phead{display:flex;justify-content:space-between;align-items:center;margin:2px 0 6px}
 .phead b{font-size:13px;font-weight:600}
 .phead button{padding:4px 10px;font-size:11.5px}
@@ -389,10 +399,39 @@ function renderConvHits(d){
     h+='<div class="hit"><div class="top">'+
        '<span class="tag">'+esc(r.role)+'</span>'+
        '<span class="score">'+esc(String(r.sid).slice(-8))+' · seq '+r.seq+' · '+esc(t)+'</span>'+
-       '</div><div class="body">'+esc(r.text)+'</div></div>'}
+       '</div><div class="body">'+esc(r.text)+'</div>'+
+       // v3：点开看前后几轮的完整原文（走 conv-read，不走全文搜）
+       '<div class="more" data-sid="'+esc(String(r.sid))+'" data-seq="'+r.seq+'">展开前后文 ▾</div>'+
+       '</div>'}
   $("#out").innerHTML=h;
   CUR=[];
 }
+// 展开某一条的上下文。再点一次收起。
+function convExpand(el){
+  var sid=el.getAttribute("data-sid"),seq=Number(el.getAttribute("data-seq"));
+  if(el.dataset.open==="1"){var nx=el.nextElementSibling;if(nx&&nx.className==="convfull")nx.remove();
+    el.dataset.open="";el.textContent="展开前后文 ▾";return}
+  el.textContent="加载中…";
+  get("/dsh-memory/conv-read?sid="+encodeURIComponent(sid)+"&seq="+seq+"&before=3&after=3").then(function(d){
+    if(!d||!d.ok){el.textContent="取不到："+((d&&d.error)||"未知");return}
+    var box=document.createElement("div");box.className="convfull";
+    var lines=(d.window||[]).map(function(m){
+      var cur=(Number(m.seq)===seq);
+      var tm=m.time?new Date(m.time).toISOString().slice(0,16).replace("T"," "):"";
+      return '<div class="cl'+(cur?" cur":"")+'"><span class="cseq">'+(cur?"▶":"")+' '+m.seq+'</span>'+
+             '<span class="cwho">'+esc(m.role)+'</span><span class="ctm">'+esc(tm)+'</span>'+
+             '<div>'+esc(m.text)+'</div></div>';
+    }).join("");
+    box.innerHTML=lines;
+    el.parentNode.insertBefore(box,el.nextSibling);
+    el.dataset.open="1";el.textContent="收起 ▴";
+  }).catch(function(e){el.textContent="失败："+e.message});
+}
+// 事件委托：结果里所有 .more 都走这里（重建 innerHTML 后不需要重新绑定）
+document.addEventListener("click",function(e){
+  var t=e.target;
+  if(t&&t.className==="more")convExpand(t);
+});
 $("#go").onclick=search;$("#q").onkeydown=function(e){if(e.key==="Enter")search()};
 
 var CUR=[];
@@ -408,6 +447,11 @@ function renderHits(list){
     var catTxt=it.level+(it.category?("/"+it.category):"");
     var meta=[];
     if(it.project)meta.push(esc(it.project));
+    // v3：带出处的条目把 sid#seq 显示出来，点击可跳原文
+    if(it.source_ref){
+      var first=String(it.source_ref).split(",")[0];
+      meta.push('<span class="more" style="margin:0" data-sid="'+esc(first.split("#")[0])+'" data-seq="'+(first.split("#")[1]||"")+'">〔原文 '+esc(first.length>26?first.slice(0,26)+"…":first)+'〕</span>');
+    }
     var when=it.at||it.updated_at||0;
     var dt=fmtLocalDT(when);
     if(dt)meta.push(esc(dt));
