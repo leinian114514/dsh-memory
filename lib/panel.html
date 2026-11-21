@@ -746,6 +746,10 @@ document.getElementById("out").addEventListener("click",function(e){
 
 
 var CURSID="global";
+// 当前项目名列表 —— 「合并」对话框的候选下拉要用。
+// 为什么存全局：openMergeProject 是从 #proj 的点击监听里调的，
+// 那里拿不到 renderProjects 内部的 ps。
+var PROJNAMES=[];
 // ========== 分区 8/8：项目核心（面板最大的模块） ==========
 // withSid → renderProjects → parentNameOf / byTree / row，
 // 以及 loadProjects / openNewProject / openProjEditor。
@@ -757,6 +761,7 @@ function renderProjects(d){
   //    之后点锁定、点开关全都作用在错的窗口上（而下拉里显示的又是对的）。
   if(d&&d.sessionId&&(!CURSID||CURSID==="global"))CURSID=d.sessionId;
   var ps=(d&&d.projects)||[];
+  PROJNAMES = ps.map(function(p){return p.name});
   var sess=(d&&d.sessions)||[];
   var lock=!!(d&&d.locked);
   var have=false,i;
@@ -868,6 +873,8 @@ function renderProjects(d){
     //    删除按钮只负责打开确认框，真正发请求要用户在里面选完「记忆怎么办」再点确认。
     s+='<button class="mbtn" data-ren="'+esc(x.name)+'" title="改项目名（连带改父/关联引用、正文文件名、各窗口锁定、记忆里的归属）">改名</button>';
     s+='<button class="mbtn danger" data-del="'+esc(x.name)+'" title="删这个项目（正文文件留底成 .deleted，记忆怎么处理由你选）">删</button>';
+    // 🆕 2026-11-21：合并。低频操作，但要手能点到（跟改名/删并排，都是"对这一个项目动手"）。
+    s+='<button class="mbtn" data-mrg="'+esc(x.name)+'" title="并进另一个项目：记忆归属改过去（不是删掉），关键词和父/关联关系一起并过去">并</button>';
     return s+"</div>";
   }
   var h='<div class="phead"><b>项目核心</b><span class="pbtns">'+
@@ -956,6 +963,8 @@ document.getElementById("proj").addEventListener("click",function(e){
   if(rb){e.stopPropagation();openRenameProject(rb.getAttribute("data-ren"));return}
   var delb=e.target.closest?e.target.closest("button[data-del]"):null;
   if(delb){e.stopPropagation();openDeleteProject(delb.getAttribute("data-del"));return}
+  var mgb=e.target.closest?e.target.closest("button[data-mrg]"):null;
+  if(mgb){e.stopPropagation();openMergeProject(mgb.getAttribute("data-mrg"));return}
   // 🔒 锁按钮：每行都有，跟勾没勾无关
   //   🔓（auto）→ 点一下 = 把当前勾选状态固定住
   //   🔒（on/off）→ 点一下 = 回到跟关键词自动
@@ -1197,6 +1206,82 @@ function openDeleteProject(name){
         (action==="keep"?"原样留着":action==="global"?"改成全局 "+d.memoriesTouched+" 条":"标成完结留档 "+d.memoriesTouched+" 条")+
         "。正文已留底为 .deleted。");
     }).catch(function(err){ok.disabled=false;msg.textContent="删除失败："+err.message});
+  };
+}
+
+// 合并：把当前项目并进另一个 —— 比「删了重建」安全（记忆归属不丢），但**不可逆**：
+// 原项目从清单消失，正文只留底成 .merged。所以对话框要把「并进哪个」和「正文怎么办」
+// 都摆出来，让人看清再点。
+function openMergeProject(name){
+  var box=document.getElementById("pedit");
+  if(!box){box=document.createElement("div");box.id="pedit";
+    var host=document.getElementById("proj");
+    host.parentNode.insertBefore(box,host);}
+  box.innerHTML="";
+  var wrap=document.createElement("div");wrap.className="ed";
+  var head=document.createElement("div");head.className="edh";
+  head.textContent="合并：「"+name+"」并进另一个项目";
+  var tip=document.createElement("div");tip.className="muted";
+  tip.textContent="合并后「"+name+"」会从清单里消失；它的记忆归属**改成**目标项目（不是删掉），关键词和父/关联关系一并并过去，正文文件留底成 .merged。";
+  wrap.appendChild(head);wrap.appendChild(tip);
+  // 目标项目：input + datalist（面板不用原生 select，暗色下样式压不住）
+  var r1=document.createElement("div");r1.className="edrow";
+  var l1=document.createElement("label");l1.textContent="并进";
+  var i1=document.createElement("input");i1.id="mg-to";i1.placeholder="目标项目名（要完全一致）";
+  var dl=document.createElement("datalist");dl.id="mg-list";
+  for(var i=0;i<PROJNAMES.length;i++){
+    if(PROJNAMES[i]===name)continue;
+    var op=document.createElement("option");op.value=PROJNAMES[i];dl.appendChild(op);
+  }
+  i1.setAttribute("list","mg-list");
+  r1.appendChild(l1);r1.appendChild(i1);r1.appendChild(dl);
+  wrap.appendChild(r1);
+  // 正文怎么办
+  var r2=document.createElement("div");r2.className="edrow";
+  var l2=document.createElement("label");l2.textContent="正文";
+  r2.appendChild(l2);
+  var opts=[["append","追加到目标项目后面（默认）"],["keep","只留底，不追加"]];
+  var rdo=[];
+  for(var j=0;j<opts.length;j++){
+    var line=document.createElement("label");
+    line.style.cursor="pointer";line.style.marginRight="14px";line.style.minWidth="0";
+    var rd=document.createElement("input");rd.type="radio";rd.name="mg-body";rd.value=opts[j][0];
+    if(j===0)rd.checked=true;
+    var t2=document.createElement("span");t2.textContent=opts[j][1];
+    line.appendChild(rd);line.appendChild(t2);
+    r2.appendChild(line);rdo.push(rd);
+  }
+  wrap.appendChild(r2);
+  var hint=document.createElement("div");hint.className="muted";
+  hint.textContent="两个项目的正文常常是不同角度写的（一个写「现在有什么功能」，一个写「踩过哪些坑」），硬拼会变成两套打架的规范 —— 拿不准就选「只留底」，之后手动挑。";
+  wrap.appendChild(hint);
+  var r3=document.createElement("div");r3.className="edrow";
+  var ok=document.createElement("button");ok.textContent="确认合并";ok.className="danger";
+  var cancel=document.createElement("button");cancel.textContent="取消";
+  var msg=document.createElement("span");msg.className="err";
+  r3.appendChild(ok);r3.appendChild(cancel);r3.appendChild(msg);
+  wrap.appendChild(r3);
+  box.appendChild(wrap);
+  i1.focus();
+  cancel.onclick=function(){box.remove()};
+  ok.onclick=function(){
+    var to=i1.value.trim();
+    if(!to){msg.textContent="要填目标项目";return}
+    if(to===name){msg.textContent="不能并进自己";return}
+    var body="append";
+    for(var k=0;k<rdo.length;k++)if(rdo[k].checked)body=rdo[k].value;
+    ok.disabled=true;msg.style.color="";msg.textContent="正在合并…";
+    fetch("/dsh-memory/projects/merge",{method:"POST",credentials:"same-origin",
+      headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
+      body:JSON.stringify({from:name,to:to,body:body})})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d.ok){ok.disabled=false;msg.textContent=d.error||"合并失败";return}
+      box.remove();loadProjects();
+      var t="已把「"+name+"」并进「"+to+"」。记忆归属改了 "+d.memoriesTouched+" 条。";
+      if(d.warn)t+="\n⚠️ "+d.warn;
+      alert(t);
+    }).catch(function(err){ok.disabled=false;msg.textContent="合并失败："+err.message});
   };
 }
 
