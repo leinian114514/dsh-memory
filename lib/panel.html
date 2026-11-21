@@ -105,6 +105,13 @@ cursor:pointer;transition:border-color .15s,background .15s}
   background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#9aa4bb;cursor:pointer}
 .pitem .lockbtn.on{background:rgba(255,170,80,.22);border-color:rgba(255,190,120,.6);color:#ffc06b}
 .pitem .nm{flex:1;font-size:12.5px;color:var(--dsw-alias-label-primary,#c9d5ee)}
+/* 子项目缩进（2026-11-21：父子支持任意层级，三级起也要看得出层级）。
+   用 padding-left 而不是 margin-left：背景条和悬停高亮仍然是满宽，列表不会参差不齐。
+   行内的 `└` 跟着内容一起右移，所以每深一层就多缩一格。 */
+.pitem.child{padding-left:28px}
+.pitem.d2{padding-left:46px}
+.pitem.d3{padding-left:64px}
+.pitem.d4{padding-left:82px}
 .pitem.on .nm{color:#eaf0ff}
 .pitem .sz{font-size:11px;color:#6f7890;font-family:ui-monospace,monospace}
 .pitem .pin{font-size:10px;color:#a8c0ff;background:rgba(124,157,255,.2);border-radius:3px;padding:1px 5px}
@@ -126,6 +133,12 @@ background:rgba(124,157,255,.18);border-color:rgba(124,157,255,.45);color:#c9d8f
 .pitem .editbtn{flex:none;margin-left:6px;padding:1px 9px;font-size:11px;border-radius:5px;
 opacity:.55;transition:opacity .15s,background .15s}
 .pitem:hover .editbtn{opacity:1}
+/* 🆕 2026-11-21：改名 / 删 —— 低频操作，但也要手能点到。
+   外观跟「改」一致（平时半透明、悬停才亮），删除单独给红色悬停，防手滑。 */
+.pitem .mbtn{flex:none;margin-left:6px;padding:1px 9px;font-size:11px;border-radius:5px;
+opacity:.55;transition:opacity .15s,background .15s}
+.pitem:hover .mbtn{opacity:1}
+.pitem .mbtn.danger:hover{background:#5a2530;border-color:#8b3a48;color:#ffc9c9}
 .sep{height:1px;background:rgba(255,255,255,.06);margin:16px 0 14px}
 .hit .acts{float:right;display:flex;gap:6px}
 /* 每条结果底下的元信息行：项目 · 时间 · 状态（2026-11-19 加） */
@@ -145,6 +158,9 @@ opacity:.55;transition:opacity .15s,background .15s}
 padding:8px 10px;font-size:12.5px;line-height:1.6;outline:none;font-family:inherit;resize:vertical}
 .ed textarea:focus,.ed input:focus{border-color:rgba(124,157,255,.55)}
 .ed #edsave{background:#4c6ef5;border-color:#3b5ee0;color:#fff}
+/* 破坏性操作的确认按钮（删项目等）：给红色，跟普通按钮一眼分开 */
+.ed button.danger{background:rgba(248,81,73,.18);border-color:rgba(248,81,73,.5);color:#ffc9c9}
+.ed button.danger:hover{background:rgba(248,81,73,.3);border-color:rgba(248,81,73,.75)}
 /* 时间 / 情境 / 情绪 三行控件（2026-11-19 加） */
 .edrow input[type=date]{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);
 border-radius:6px;color:#dfe6f8;padding:5px 8px;font-size:12px;font-family:inherit;color-scheme:dark;
@@ -192,6 +208,8 @@ border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
 <div id="editor"></div>
 <div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
 <script>
+// ========== 分区 1/8：主题与背景 ==========
+// 深浅色切换、背景图。跟业务无关，改样式从这里下手。
 function syncTheme(){
 try{
 var d=window.parent.document.documentElement;
@@ -256,6 +274,7 @@ var $=function(s){return document.querySelector(s)};
 //        一保存就把原值覆盖成残片（不用恶意构造就丢数据）；
 //      · 恶意名字可以闭合属性注入 onmouseover=…，而面板是同源 iframe，
 //        注入的脚本能以本机信任身份调所有 /dsh-memory/* 写接口。
+// ========== 分区 2/8：通用工具（esc / get / post） ==========
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
 return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c==='"'?"&quot;":"&#39;"})}
 // 🛑 后端用 {ok:false, error} 表示业务失败。只看 HTTP 状态会把它当成功数据渲染：
@@ -279,6 +298,8 @@ if(timer)clearTimeout(timer);
 //    永远转圈，会以为是死了。
 if(e&&e.name==="AbortError")throw new Error("超时（"+(ms2/1000)+" 秒没响应，可能正在建索引，稍后再试）");
 throw e})}
+// ========== 分区 3/8：顶部统计 ==========
+// /dsh-memory/stats 的渲染，四层计数 + 项目数。
 function renderStats(d){var g=$("#stats"),h="";
 var order=["core","project","branch","detail"];
 for(var i=0;i<order.length;i++){var k=order[i];
@@ -288,6 +309,8 @@ h+='<div class="cell"><b>'+d.total+'</b><span>合计</span></div>';
 g.innerHTML=h}
 // 时间轴：按天把新增和改动铺开，看得出"哪一批是同一阶段的产物"
 var TL={days:30,layers:'',only:''};
+// ========== 分区 4/8：时间线 ==========
+// 一条记忆被改过几次、每次改了啥，能还原某一版。
 function tlFetch(){
 var q="/dsh-memory/timeline?days="+TL.days;
 if(TL.layers)q+="&layers="+encodeURIComponent(TL.layers);
@@ -337,6 +360,8 @@ function load(){get("/dsh-memory/stats").then(renderStats).catch(function(e){
 $("#stats").innerHTML='<div class="err">统计失败：'+esc(e.message)+'</div>'});
 get("/dsh-memory/plans").then(renderPlans).catch(function(){})}
 // 方案进度：只列没做完的，一眼看到卡在哪
+// ========== 分区 5/8：方案与任务清单 ==========
+// 勾选进度、收档。
 function renderPlans(d){
 var box=$("#plans");if(!box)return;
 var ps=(d&&d.plans)||[];
@@ -361,6 +386,8 @@ var qi=$("#q");qi.value=t;if($("#convchk"))$("#convchk").checked=false;search()}
 })(rows[i])}
 }
 var convBusy=false;
+// ========== 分区 6/8：搜索 ==========
+// 关键词检索 + 命中渲染 + 历史对话回看（convExpand）。
 function search(){var q=$("#q").value.trim();
 var conv=$("#convchk")&&$("#convchk").checked;
 if(!q&&!conv){var u="/dsh-memory/recent?n=15";
@@ -474,6 +501,8 @@ function renderHits(list){
   }
   o.innerHTML=h;
 }
+// ========== 分区 7/8：记忆编辑器 ==========
+// 打开/编辑/保存单条记忆，含版本对比。
 function post(u,body){
   return fetch(u,{method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
@@ -717,6 +746,10 @@ document.getElementById("out").addEventListener("click",function(e){
 
 
 var CURSID="global";
+// ========== 分区 8/8：项目核心（面板最大的模块） ==========
+// withSid → renderProjects → parentNameOf / byTree / row，
+// 以及 loadProjects / openNewProject / openProjEditor。
+// ⚠️ 改这里前先读：一行三个独立控件（方框=注入 / 锁=固定 / 改=编辑）**不能合并**。
 function withSid(u){return u+(u.indexOf("?")>=0?"&":"?")+"session="+encodeURIComponent(CURSID)}
 function renderProjects(d){
   // 🛑 只在"还没选过窗口"时接受后端挑的那个会话。
@@ -744,26 +777,55 @@ function renderProjects(d){
   //    这样即使没手动给子项目写过 parent，`父项目/子板块` 也会挂在 `父项目` 下面，
   //    跟记忆库里 `project` 字段的父子规则保持一致。
   function parentNameOf(x){
-    if(x.parent)return x.parent;
+    // 2026-11-21：支持一个项目挂多个父（parent 是数组）；老数据是字符串也认。
+    // 🛑 判空不能用 `if(x.parent)` —— **空数组是 truthy**，后端对没有父的项目
+    //    返回的是 `parent: []`，那样就会直接返回 `[]`、永远走不到下面的名字推断
+    //    （`父/子` 这种只靠名字挂上去的项目会整片掉出来当孤立项）。
+    if(Array.isArray(x.parent))return x.parent.filter(function(s){return s});
+    if(x.parent)return [x.parent];
     var nm=String((x&&x.name)||''),slash=nm.lastIndexOf('/');
-    return slash>0?nm.slice(0,slash):'';
+    return slash>0?[nm.slice(0,slash)]:[];
   }
+  // 🆕 2026-11-21：**层级不限**（`父/子/孙` 也能一层一层展开）。
+  //    原来只展开一层，孙辈会掉到末尾被当成孤立项、并且缩进还错。
   function byTree(list){
-    var kids={},roots=[],i2,j2,n2,pn;
+    var kids={},roots=[],byName={},i2,j2,n2,pl;
+    for(i2=0;i2<list.length;i2++)byName[list[i2].name]=list[i2];
     for(i2=0;i2<list.length;i2++){
-      n2=list[i2];
-      pn=parentNameOf(n2);
-      if(pn&&list.some(function(x){return x.name===pn}))(kids[pn]=kids[pn]||[]).push(n2);
-      else roots.push(n2);
+      n2=list[i2];pl=parentNameOf(n2);
+      var hasParent=false;
+      for(j2=0;j2<pl.length;j2++){
+        var pj=pl[j2];
+        // 只认"在这一组里真的存在"的父；父不在这一组（比如在另一半区），就算孤立
+        if(byName[pj]){hasParent=true;(kids[pj]=kids[pj]||[]).push(n2)}
+      }
+      if(!hasParent)roots.push(n2);
     }
     var out=[];
-    for(i2=0;i2<roots.length;i2++){
-      out.push(roots[i2]);
-      var ch=kids[roots[i2].name]||[];
-      for(j2=0;j2<ch.length;j2++){ch[j2]._child=true;out.push(ch[j2])}
+    // 🛑 多父时必须**复制对象**再打 _child：否则同一个项目在第一个父下面是子项、
+    //    在第二个父下面也带着 _child 标记，缩进和"孤立补末尾"的判断都会错。
+    function pushIt(item,depth){
+      var copy=Object.assign({},item);
+      if(depth>0){copy._child=true;copy._depth=depth}
+      out.push(copy);
     }
-    // 父项目不在这一组的孤立子项目，补在末尾
-    for(var k in kids)for(j2=0;j2<kids[k].length;j2++)if(out.indexOf(kids[k][j2])<0)out.push(kids[k][j2]);
+    // 🛑 递归展开必须自己防环：`A.parent=['B']` + `B.parent=['A']` 这种手写错的
+    //    父名会让递归永远转下去。后端 withLinked 有 out 集合兜着，前端没有。
+    function walk(item,depth,path){
+      if(path.indexOf(item.name)>=0)return;
+      pushIt(item,depth);
+      var ch=kids[item.name]||[];
+      if(!ch.length)return;
+      var p2=path.concat([item.name]);
+      for(var k=0;k<ch.length;k++)walk(ch[k],depth+1,p2);
+    }
+    for(i2=0;i2<roots.length;i2++)walk(roots[i2],0,[]);
+    // 父项目不在这一组的孤立子项目，补在末尾（它自己的下级照样跟着展开）
+    for(var k2 in kids)for(j2=0;j2<kids[k2].length;j2++){
+      var it=kids[k2][j2],seen=false;
+      for(var z=0;z<out.length;z++)if(out[z].name===it.name){seen=true;break}
+      if(!seen)walk(it,1,[]);
+    }
     return out;
   }
   on=byTree(on);off=byTree(off);
@@ -771,7 +833,9 @@ function renderProjects(d){
     // 打勾 = 当前活跃（有 missRounds）或手动锁住；跟上面 on/off 分组用同一套判据
     var on2=(x.missRounds!=null||x.mode==="on");
     // data-mode 是给点击逻辑用的：要知道这一行现在是 auto / on / off 才能算"下一个状态"
-    var s='<div class="pitem'+(on2?" on":"")+(x._child?" child":"")+'" data-n="'+esc(x.name)+'" data-mode="'+esc(x.mode||"auto")+'">';
+    // 缩进层：1 层用 .child，2 层起再加 .d2/.d3/.d4（再深就到头了，视觉上没区别）
+    var dep=Math.min(x._depth||1,4);
+    var s='<div class="pitem'+(on2?" on":"")+(x._child?" child"+(dep>1?" d"+dep:""):"")+'" data-n="'+esc(x.name)+'" data-mode="'+esc(x.mode||"auto")+'">';
     s+='<span class="box">'+(on2?"✓":"")+"</span>";
     if(x._child)s+='<span class="br">└</span>';
     s+='<span class="nm">'+esc(x.name)+"</span>";
@@ -800,6 +864,10 @@ function renderProjects(d){
        (locked?"已固定住，点一下回到跟关键词自动":"现在是跟关键词自动，点一下把当前状态固定住")+
        '">'+(locked?"🔒":"🔓")+'</button>';
     s+='<button class="editbtn" data-edit="'+esc(x.name)+'" title="改这个项目的核心正文">改</button>';
+    // 🆕 2026-11-21：改名 / 删。跟「改」并排 —— 都是"对这一个项目动手"，分开放反而难找。
+    //    删除按钮只负责打开确认框，真正发请求要用户在里面选完「记忆怎么办」再点确认。
+    s+='<button class="mbtn" data-ren="'+esc(x.name)+'" title="改项目名（连带改父/关联引用、正文文件名、各窗口锁定、记忆里的归属）">改名</button>';
+    s+='<button class="mbtn danger" data-del="'+esc(x.name)+'" title="删这个项目（正文文件留底成 .deleted，记忆怎么处理由你选）">删</button>';
     return s+"</div>";
   }
   var h='<div class="phead"><b>项目核心</b><span class="pbtns">'+
@@ -883,6 +951,11 @@ document.getElementById("proj").addEventListener("click",function(e){
   // 「改」按钮先拦下来：它在 .pitem 里面，不拦会同时触发项目开关
   var eb=e.target.closest?e.target.closest("button[data-edit]"):null;
   if(eb){e.stopPropagation();openProjEditor(eb.getAttribute("data-edit"));return}
+  // 🆕 2026-11-21：改名 / 删 也在这个容器里，同样要先拦，不然会连带触发项目开关
+  var rb=e.target.closest?e.target.closest("button[data-ren]"):null;
+  if(rb){e.stopPropagation();openRenameProject(rb.getAttribute("data-ren"));return}
+  var delb=e.target.closest?e.target.closest("button[data-del]"):null;
+  if(delb){e.stopPropagation();openDeleteProject(delb.getAttribute("data-del"));return}
   // 🔒 锁按钮：每行都有，跟勾没勾无关
   //   🔓（auto）→ 点一下 = 把当前勾选状态固定住
   //   🔒（on/off）→ 点一下 = 回到跟关键词自动
@@ -931,6 +1004,11 @@ function openNewProject(){
   var l2=document.createElement("label");l2.textContent="关键词";
   var i2=document.createElement("input");i2.id="np-kw";i2.placeholder="逗号或空格分隔。写「你实际会怎么说」，不是项目名";
   r2.appendChild(l2);r2.appendChild(i2);
+  // 🆕 2026-11-21：父项目 —— 一个子项目可以同时挂在几个父下面（逗号分隔）
+  var rp=document.createElement("div");rp.className="edrow";
+  var lp=document.createElement("label");lp.textContent="父项目";
+  var ip=document.createElement("input");ip.id="np-parent";ip.placeholder="可选。父项目要**先建好**；多个用逗号分隔，例：项目甲,项目乙";
+  rp.appendChild(lp);rp.appendChild(ip);
   var r3=document.createElement("div");r3.className="edrow";
   var l3=document.createElement("label");l3.textContent="初始内容";
   r3.appendChild(l3);
@@ -942,7 +1020,7 @@ function openNewProject(){
   var msg=document.createElement("span");msg.className="err";
   r4.appendChild(save);r4.appendChild(cancel);r4.appendChild(msg);
   var wrap=document.createElement("div");wrap.className="ed";
-  wrap.appendChild(head);wrap.appendChild(r1);wrap.appendChild(r2);wrap.appendChild(r3);
+  wrap.appendChild(head);wrap.appendChild(r1);wrap.appendChild(r2);wrap.appendChild(rp);wrap.appendChild(r3);
   wrap.appendChild(ta);wrap.appendChild(r4);
   box.appendChild(wrap);
   i1.focus();
@@ -952,7 +1030,7 @@ function openNewProject(){
     if(!nm){msg.textContent="项目名不能为空";return}
     fetch("/dsh-memory/projects/create",{method:"POST",credentials:"same-origin",
       headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
-      body:JSON.stringify({name:nm,keywords:i2.value,content:ta.value})})
+      body:JSON.stringify({name:nm,keywords:i2.value,content:ta.value,parent:ip.value})})
     .then(function(x){return x.json()})
     .then(function(d){
       if(!d.ok){msg.textContent=d.error||"创建失败";return}
@@ -1015,6 +1093,111 @@ function openProjEditor(name){
     };
     ta.focus();
   }).catch(function(e){alert("读不到："+e.message)});
+}
+
+// ========== 分区 8b：项目改名 / 删除（2026-11-21 新增的 UI 入口） ==========
+// 这两个动作都是"对一个项目动手"，所以并排在「改」旁边，对话框复用 #pedit 容器。
+// ⚠️ 两个后端接口都是破坏性的：改名会连带改所有引用，删除会动记忆的归属 ——
+//    UI 这一层要保证"用户看清楚了才发请求"，不能点一下按钮就直接动手。
+function openRenameProject(name){
+  var box=document.getElementById("pedit");
+  if(!box){box=document.createElement("div");box.id="pedit";
+    var host=document.getElementById("proj");
+    host.parentNode.insertBefore(box,host);}
+  box.innerHTML="";
+  var wrap=document.createElement("div");wrap.className="ed";
+  var head=document.createElement("div");head.className="edh";
+  head.textContent="重命名项目："+name;
+  var r1=document.createElement("div");r1.className="edrow";
+  var l1=document.createElement("label");l1.textContent="新名字";
+  var i1=document.createElement("input");i1.id="rn-name";i1.value=name;i1.placeholder="新项目名（最多 40 字）";
+  r1.appendChild(l1);r1.appendChild(i1);
+  // 把"会连带改什么"写在按钮上方：改名是全局性的，用户得知道影响面
+  var tip=document.createElement("div");tip.className="muted";
+  tip.textContent="会一起改：项目清单、别的项目里对它的父/关联引用、正文文件名、各窗口的锁定状态、记忆里写的归属项目。名字重复会直接拒绝，不会覆盖。";
+  var r2=document.createElement("div");r2.className="edrow";
+  var save=document.createElement("button");save.textContent="确认改名";
+  var cancel=document.createElement("button");cancel.textContent="取消";
+  var msg=document.createElement("span");msg.className="err";
+  r2.appendChild(save);r2.appendChild(cancel);r2.appendChild(msg);
+  wrap.appendChild(head);wrap.appendChild(r1);wrap.appendChild(tip);wrap.appendChild(r2);
+  box.appendChild(wrap);
+  i1.focus();i1.select();
+  cancel.onclick=function(){box.remove()};
+  i1.onkeydown=function(ev){if(ev.key==="Enter")save.click()};
+  save.onclick=function(){
+    var to=i1.value.trim();
+    if(!to){msg.textContent="新名字不能为空";return}
+    if(to===name){msg.textContent="跟原来一样";return}
+    // 防连点：改名要改库里所有相关记忆，条数多时是秒级的，重复提交会打架
+    save.disabled=true;msg.style.color="";msg.textContent="正在改…";
+    fetch("/dsh-memory/projects/rename",{method:"POST",credentials:"same-origin",
+      headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
+      body:JSON.stringify({from:name,to:to})})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d.ok){save.disabled=false;msg.textContent=d.error||"改名失败";return}
+      box.remove();loadProjects();
+    }).catch(function(err){save.disabled=false;msg.textContent="改名失败："+err.message});
+  };
+}
+// 删项目：**不替用户决定记忆怎么办**。三选一是后端定的语义，UI 只负责讲清后果：
+//   keep   记忆原样留着         —— 项目没了，按项目查不到它（孤儿），但全文搜索还搜得到
+//   global 归属改成「全局」     —— 还搜得到，但失去"属于哪个项目"这层信息
+//   stale  标成完结留档         —— 检索仍能命中，只是标记成"这件事完了"
+// 正文文件不删，改名成 .md.deleted 留底，所以"删项目"永远不等于"删内容"。
+function openDeleteProject(name){
+  var box=document.getElementById("pedit");
+  if(!box){box=document.createElement("div");box.id="pedit";
+    var host=document.getElementById("proj");
+    host.parentNode.insertBefore(box,host);}
+  box.innerHTML="";
+  var wrap=document.createElement("div");wrap.className="ed";
+  var head=document.createElement("div");head.className="edh";
+  head.textContent="删除项目："+name;
+  var warn=document.createElement("div");warn.className="muted";
+  warn.textContent="项目会从清单里移除，别的项目里对它的父/关联引用一并清掉；正文文件不删，改名成 .deleted 留底。下面的记忆怎么办由你选 ——";
+  wrap.appendChild(head);wrap.appendChild(warn);
+  var opts=[
+    ["keep","记忆原样留着（默认）","项目没了，按项目名查不到这些记忆（成孤儿），但关键词搜索照样搜得到"],
+    ["global","把记忆的归属改成「全局」","还搜得到，但从此不知道它们原来是这个项目的"],
+    ["stale","把记忆标成「完结留档」","检索仍能命中，只是标记成「这件事完了」，等于这个项目收档了"]
+  ];
+  var rdo=[];
+  for(var i=0;i<opts.length;i++){
+    var line=document.createElement("label");line.className="edrow";line.style.cursor="pointer";
+    var rd=document.createElement("input");rd.type="radio";rd.name="del-mem";rd.value=opts[i][0];
+    if(i===0)rd.checked=true;
+    var ttl=document.createElement("span");ttl.textContent=opts[i][1];
+    var sub=document.createElement("span");sub.className="muted";sub.style.marginLeft="8px";sub.textContent="— "+opts[i][2];
+    line.appendChild(rd);line.appendChild(ttl);line.appendChild(sub);
+    rdo.push(rd);wrap.appendChild(line);
+  }
+  var r2=document.createElement("div");r2.className="edrow";
+  var ok=document.createElement("button");ok.textContent="确认删除";ok.className="danger";
+  var cancel=document.createElement("button");cancel.textContent="取消";
+  var msg=document.createElement("span");msg.className="err";
+  r2.appendChild(ok);r2.appendChild(cancel);r2.appendChild(msg);
+  wrap.appendChild(r2);
+  box.appendChild(wrap);
+  cancel.onclick=function(){box.remove()};
+  ok.onclick=function(){
+    var action="keep";
+    for(var j=0;j<rdo.length;j++)if(rdo[j].checked)action=rdo[j].value;
+    ok.disabled=true;msg.style.color="";msg.textContent="正在删…";
+    fetch("/dsh-memory/projects/delete",{method:"POST",credentials:"same-origin",
+      headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
+      body:JSON.stringify({name:name,memoryAction:action})})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d.ok){ok.disabled=false;msg.textContent=d.error||"删除失败";return}
+      box.remove();loadProjects();
+      // 删完要让用户知道记忆被动了几条 —— 不然"我是不是把它全清了"这个疑问得自己去翻
+      alert("已删除项目「"+name+"」。记忆处理："+
+        (action==="keep"?"原样留着":action==="global"?"改成全局 "+d.memoriesTouched+" 条":"标成完结留档 "+d.memoriesTouched+" 条")+
+        "。正文已留底为 .deleted。");
+    }).catch(function(err){ok.disabled=false;msg.textContent="删除失败："+err.message});
+  };
 }
 
 $("#addbtn").onclick=function(){openEditor(null)};
