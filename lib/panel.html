@@ -786,8 +786,14 @@ function renderProjects(d){
     // 🛑 判空不能用 `if(x.parent)` —— **空数组是 truthy**，后端对没有父的项目
     //    返回的是 `parent: []`，那样就会直接返回 `[]`、永远走不到下面的名字推断
     //    （`父/子` 这种只靠名字挂上去的项目会整片掉出来当孤立项）。
-    if(Array.isArray(x.parent))return x.parent.filter(function(s){return s});
-    if(x.parent)return [x.parent];
+    // 🛑 判空不能用 `if(x.parent)`，也**不能只判 Array.isArray** —— 空数组是 truthy，
+    //    后端对没有父的项目返回的就是 `parent: []`，那样会直接返回 `[]`、
+    //    永远走不到下面的名字推断（`父/子` 这种只靠名字挂上去的项目整片掉出来当孤立项）。
+    //    所以先算候选，长度 > 0 才用，否则继续往下推名字。
+    var cand = Array.isArray(x.parent)
+      ? x.parent.filter(function(s){return s})
+      : (x.parent ? [x.parent] : []);
+    if(cand.length)return cand;
     var nm=String((x&&x.name)||''),slash=nm.lastIndexOf('/');
     return slash>0?[nm.slice(0,slash)]:[];
   }
@@ -1016,7 +1022,7 @@ function openNewProject(){
   // 🆕 2026-11-21：父项目 —— 一个子项目可以同时挂在几个父下面（逗号分隔）
   var rp=document.createElement("div");rp.className="edrow";
   var lp=document.createElement("label");lp.textContent="父项目";
-  var ip=document.createElement("input");ip.id="np-parent";ip.placeholder="可选。父项目要**先建好**；多个用逗号分隔，例：项目甲,项目乙";
+  var ip=document.createElement("input");ip.id="np-parent";ip.placeholder="可选。父项目要先建好；多个用逗号分隔，例：项目甲,项目乙";
   rp.appendChild(lp);rp.appendChild(ip);
   var r3=document.createElement("div");r3.className="edrow";
   var l3=document.createElement("label");l3.textContent="初始内容";
@@ -1050,7 +1056,7 @@ function openNewProject(){
 function openProjEditor(name){
   get("/dsh-memory/projects/file?name="+encodeURIComponent(name)).then(function(r){
     if(!r.ok){alert(r.error||"读不到");return}
-    var LIMIT=r.limit||1500;
+    var LIMIT=r.limit||2000;
     var box=document.getElementById("pedit");
     if(!box){box=document.createElement("div");box.id="pedit";
       var host=document.getElementById("proj");
@@ -1222,7 +1228,7 @@ function openMergeProject(name){
   var head=document.createElement("div");head.className="edh";
   head.textContent="合并：「"+name+"」并进另一个项目";
   var tip=document.createElement("div");tip.className="muted";
-  tip.textContent="合并后「"+name+"」会从清单里消失；它的记忆归属**改成**目标项目（不是删掉），关键词和父/关联关系一并并过去，正文文件留底成 .merged。";
+  tip.textContent="合并后「"+name+"」会从清单里消失；它的记忆归属改成目标项目（不是删掉），关键词和父/关联关系一并并过去，正文文件留底成 .merged。";
   wrap.appendChild(head);wrap.appendChild(tip);
   // 目标项目：input + datalist（面板不用原生 select，暗色下样式压不住）
   var r1=document.createElement("div");r1.className="edrow";

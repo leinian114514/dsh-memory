@@ -10,7 +10,7 @@ debug.log
 data/
 export-test*.md
 
-# 测试与内部工具（依赖本机真库路径，不随包发布）
+# 测试与内部工具（依赖本机真实库路径，不随包发布）
 test/
 _tools/
 *.bak-*
