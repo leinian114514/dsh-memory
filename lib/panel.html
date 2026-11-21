@@ -208,6 +208,17 @@ border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
 <div id="editor"></div>
 <div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
 <script>
+// ========== 分类中文名（全界面唯一的映射表）==========
+// 为什么要有：界面上不摆生英文（`detail/lesson` 这种看着累），
+// 而分类名在库里存的是英文标识符，显示时转一次。
+// 新增分类只改这一处 —— 没命中就原样显示，不会炸。
+var CAT_CN={
+  identity:"身份",preference:"偏好",principle:"原则",rule:"禁令",
+  overview:"概览",structure:"结构",features:"功能",history:"年表",
+  decision:"决策",ops:"现状",todo:"待办",quote:"金句",plan:"方案",
+  fact:"事实",lesson:"教训",topic:"专题",procedure:"规程",impl:"实现",reference:"参考资料"
+};
+function catCN(c){return CAT_CN[c]||c||""}
 // ========== 分区 1/8：主题与背景 ==========
 // 深浅色切换、背景图。跟业务无关，改样式从这里下手。
 function syncTheme(){
@@ -471,7 +482,8 @@ function renderHits(list){
     var it=CUR[i];
     // 层 + 分类一起显示（`detail/lesson`）：只给层的话，想筛「这个项目的教训」
     // 还得一条条点开才知道分工。
-    var catTxt=it.level+(it.category?("/"+it.category):"");
+    // 但分类名一律转中文 —— 界面上不摆生英文（2026-11-21 审计 P1）。
+    var catTxt=it.level+(it.category?("/"+catCN(it.category)):"");
     var meta=[];
     if(it.project)meta.push(esc(it.project));
     // v3：带出处的条目把 sid#seq 显示出来，点击可跳原文
