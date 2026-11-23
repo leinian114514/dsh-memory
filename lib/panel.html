@@ -919,6 +919,23 @@ function renderProjects(d){
   for(i=0;i<on.length;i++)h+=row(on[i]);
   h+='<div class="plabel">未加载 '+off.length+"</div>";
   for(i=0;i<off.length;i++)h+=row(off[i]);
+  // 🔍 「有记忆、但没建核心」的项目（2026-11-22 加）。
+  //    为什么要有这行：记忆条目的 project 字段是写入时随便填的，而项目核心**必须手动登记**。
+  //    于是这些项目的记忆存在、能搜到，但用户**在面板上看不见它们**，会以为这个项目没有记忆
+  //    （他当时问的就是「聊天好像根本就没有聊天相关的项目和记忆」）。
+  //    点项目名直接进「新建项目核心」并预填好 —— 不然还得自己回想叫什么。
+  var orph=(d&&d.orphans)||[];
+  if(orph.length){
+    var otot=0,olink=[];
+    for(i=0;i<orph.length;i++){
+      otot+=orph[i].count;
+      olink.push('<a class="orph" data-orph="'+esc(orph[i].name)+'" title="点一下新建它的项目核心（名字已预填）">'+
+        esc(orph[i].name)+"（"+orph[i].count+"）</a>");
+    }
+    h+='<div class="plabel">有记忆但没建核心 '+orph.length+"</div>";
+    h+='<div class="porph" title="这些项目的记忆能搜到，但面板上看不到它们本身，也不会按关键词自动注入。点名字可以立刻建核心。">'+
+      olink.join(" · ")+'<div class="orphsum">合计 '+otot+" 条记忆挂在这些项目上</div></div>";
+  }
   $("#proj").innerHTML=h;
   // 渲染成功就把上次的错误条清掉
   var eb2=document.getElementById("projerr");
@@ -939,6 +956,14 @@ function renderProjects(d){
       var sid=t.getAttribute("data-id");
       slist.classList.remove("open");
       if(sid!==CURSID){ CURSID=sid; loadProjects() }
+    };
+  }
+  // 「有记忆但没核心」那一行点名字 → 直接建核心，名字预填好
+  var orphLinks=$("#proj").querySelectorAll(".orph");
+  for(i=0;i<orphLinks.length;i++){
+    orphLinks[i].onclick=function(e){
+      e.stopPropagation();
+      openNewProject(this.getAttribute("data-orph"));
     };
   }
   var nb=$("#newproj");
@@ -1016,7 +1041,8 @@ document.getElementById("proj").addEventListener("click",function(e){
 });
 // 编辑某项目的核心正文：读 → textarea → 写回
 // 新建一个项目核心：填名字 + 关键词，插件写好 projects.json 和初始 md
-function openNewProject(){
+// prefill：从「有记忆但没核心」那一行点进来时，把项目名预填好 —— 省得手打
+function openNewProject(prefill){
   var box=document.getElementById("pedit");
   if(!box){box=document.createElement("div");box.id="pedit";
     var host=document.getElementById("proj");
@@ -1039,6 +1065,16 @@ function openNewProject(){
   var r3=document.createElement("div");r3.className="edrow";
   var l3=document.createElement("label");l3.textContent="初始内容";
   r3.appendChild(l3);
+  // 🆕 2026-11-22：**只挂层级，不写正文**。
+  //    有时候项目只需要挂到父下面（归属 / 层级 / 跟着父被带出来），
+  //    本身没什么「不看就会做错」的东西 —— 那就别逼着写一份空骨架。
+  //    勾上之后写的是空文件：面板显示「没写文件」、注入时也不带任何内容。
+  var chk=document.createElement("label");
+  chk.style.cssText="display:flex;align-items:center;gap:4px;margin-left:10px;font-weight:400;font-size:11.5px;cursor:pointer;";
+  var cb=document.createElement("input");cb.type="checkbox";cb.id="np-empty";
+  chk.appendChild(cb);
+  chk.appendChild(document.createTextNode("只挂层级，不写正文"));
+  r3.appendChild(chk);
   var ta=document.createElement("textarea");ta.id="np-ct";ta.rows=8;
   ta.value="# 项目名 · 项目核心\n\n> 只写「不知道就会做错」的东西。背景、历史、代码说明不要放这里。\n\n## 坑\n- （这一条不看会怎么出错？）\n"
   var r4=document.createElement("div");r4.className="edrow";
@@ -1051,13 +1087,20 @@ function openNewProject(){
   wrap.appendChild(ta);wrap.appendChild(r4);
   box.appendChild(wrap);
   i1.focus();
+  // 勾了「只挂层级」就把正文区禁掉 —— 让人一眼看出这次不写正文，
+  // 也避免"打了字但勾着"这种自相矛盾的提交（勾着就不是正文，字会被忽略）。
+  cb.onchange=function(){
+    ta.disabled=cb.checked;
+    ta.style.opacity=cb.checked?"0.45":"1";
+    ta.value=cb.checked?"":ta.value;
+  };
   cancel.onclick=function(){box.remove()};
   save.onclick=function(){
     var nm=i1.value.trim();
     if(!nm){msg.textContent="项目名不能为空";return}
     fetch("/dsh-memory/projects/create",{method:"POST",credentials:"same-origin",
       headers:{"content-type":"application/json","x-dsh-memory-panel":"1"},
-      body:JSON.stringify({name:nm,keywords:i2.value,content:ta.value,parent:ip.value})})
+      body:JSON.stringify({name:nm,keywords:i2.value,content:cb.checked?"":ta.value,parent:ip.value,empty:cb.checked})})
     .then(function(x){return x.json()})
     .then(function(d){
       if(!d.ok){msg.textContent=d.error||"创建失败";return}
