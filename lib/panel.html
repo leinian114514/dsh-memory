@@ -203,7 +203,7 @@ border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
 <div id="plans"></div>
 <div id="proj"><div class="muted">加载中…</div></div>
 <div class="sep"></div>
-<div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="tlbtn">时间轴</button><button id="addbtn">＋新增</button></div>
+<div class="row"><input id="q" placeholder="搜记忆…（回车）" autocomplete="off"><button id="go">搜</button><button id="tlbtn">时间轴</button><button id="addbtn">＋新增</button><button id="cmpbtn" title="压缩当前活跃会话的上下文（走 /compact，较早的对话会折成摘要）">🚽 压缩</button></div>
 <div class="srow"><label><input type="checkbox" id="convchk" style="margin-right:6px;vertical-align:-1px">也搜历史对话原文</label><label style="margin-left:14px"><input type="checkbox" id="qarch" style="margin-right:6px;vertical-align:-1px">含已归档</label><span class="muted" id="convstat"></span></div>
 <div id="editor"></div>
 <div id="out"><div class="muted">上方输入关键词检索；不输入则看最近改动。</div></div>
@@ -1347,6 +1347,46 @@ function openMergeProject(name){
 }
 
 $("#addbtn").onclick=function(){openEditor(null)};
+// ── 🚽 压缩按钮（2026-11-25）────────────────────────
+// 为什么加：auto-checkpoint 归档后，原来那个「冲水键」跟着没了，
+// 手动压缩只能去输入框打 /compact。这里调后端的 /dsh-memory/compact。
+// ⚠️ 压的是**最近结束回合的那个会话**（后端 lastAgentSeen）——多窗口时可能不是眼前这个，
+//    所以回包把完整 session id 带回来，鼠标悬停能看全。
+// ⚠️ 不用 confirm()：侧栏是 iframe，prompt/confirm/alert 会被静默拒绝（roundtable 踩过）。
+// ⚠️ 2026-11-25 审「降档应急版」时改的：后端现在只回「已发起」，**不等压缩完**。
+//    原因：压缩完成后 DSH 会把插件重载，正好掐断这条请求 —— 前端 fetch 抛异常，
+//    界面上显示「❌ 出错」，而上下文其实已经压掉了。报失败而实际成功是最坏的谎报。
+//    ⇒ 文案只说「已发起」，成没成看界面上的压缩提示，或者看插件的 debug.log。
+(function(){
+  var btn=document.getElementById('cmpbtn');
+  if(!btn) return;
+  btn.onclick=async function(){
+    if(btn.disabled) return;
+    var old=btn.textContent, oldTitle=btn.title;
+    btn.disabled=true; btn.textContent='已发起…';
+    try{
+      var ac=new AbortController();
+      var timer=setTimeout(function(){ac.abort()},8000);
+      var r=await fetch('/dsh-memory/compact',{method:'POST',signal:ac.signal});
+      clearTimeout(timer);
+      var j=await r.json();
+      if(j.ok){
+        btn.textContent='🧻 已发起';
+        btn.title='压的是最近结束回合的那个会话（'+(j.sessionId||'')+'）。'+
+          '成没成看界面上的压缩提示，或者看插件的 debug.log（先等它空闲，最多 30 秒）。';
+      }else{
+        btn.textContent='⚠️ 没发起';
+        btn.title=String(j.error||j.message||'未知原因');
+      }
+    }catch(e){
+      // 连接被断，多半意味着压缩已经开始、插件正在重载 —— 别报「出错」
+      btn.textContent='🧻 已发起';
+      btn.title='连接被断开（通常是压缩开始后插件重载）。看界面上的压缩提示。';
+    }
+    setTimeout(function(){btn.textContent=old;btn.disabled=false;btn.title=oldTitle;},2600);
+  };
+})();
+
 load();loadProjects();search();
 setTimeout(function(){try{syncTheme()}catch(e){}try{syncBackdrop()}catch(e){}},60);
 // 🕒 倒计时会随对话轮次往前走，所以面板开着时隔一会儿静默刷一次项目区，
